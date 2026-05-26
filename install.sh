@@ -203,7 +203,12 @@ if [[ "$need_hash" -eq 1 ]]; then
   if [[ -z "$ADMIN_PW" ]]; then
     # Interactive prompt with confirmation.
     if [[ ! -t 0 ]]; then
-      die "no password supplied and stdin is not a TTY (use --password or ADMIN_PASSWORD=...)"
+      if [[ -r /dev/tty ]]; then
+        log "stdin is piped; reading password from /dev/tty"
+        exec < /dev/tty
+      else
+        die "no password supplied and /dev/tty not available (use --password or ADMIN_PASSWORD=...)"
+      fi
     fi
     while :; do
       read -rsp "Admin password for '$ADMIN_USER': " p1; echo
