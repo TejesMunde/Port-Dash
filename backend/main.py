@@ -96,11 +96,10 @@ def get_self_info() -> dict:
     except (subprocess.TimeoutExpired, FileNotFoundError):
         pass
     try:
-        s = socket.socket(socket.AF_INET, socket.SOCK_DGRAM)
-        s.connect(("8.8.8.8", 80))
-        info["public_ip"] = s.getsockname()[0]
-        s.close()
-    except OSError:
+        import urllib.request
+        with urllib.request.urlopen("https://checkip.amazonaws.com", timeout=3) as resp:
+            info["public_ip"] = resp.read().decode().strip()
+    except Exception:
         pass
     return info
 
