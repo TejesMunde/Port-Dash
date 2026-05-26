@@ -82,9 +82,7 @@ if [[ "$PKG" == "apt" ]]; then
   apt-get install -y --no-install-recommends \
     ca-certificates curl gnupg git \
     python3 python3-venv python3-pip \
-    iptables
-  # ufw breaks iptables-persistent on Ubuntu 24.04+; remove it atomically.
-  apt-get install -y ufw iptables-persistent- 2>/dev/null || apt-get install -y ufw
+    iptables iptables-persistent
 
   # Node 20 via NodeSource if system node is missing or <18.
   need_node=1
@@ -269,21 +267,11 @@ fi
 # ---------- firewall ----------
 if [[ "$DO_FIREWALL" -eq 1 ]]; then
   log "configuring firewall (SSH + 80/443; 8080 stays loopback-only)"
-  if [[ "$PKG" == "apt" ]]; then
-    ufw allow OpenSSH &>/dev/null || ufw allow 22/tcp &>/dev/null || true
-    ufw allow 80/tcp  &>/dev/null || true
-    ufw allow 443/tcp &>/dev/null || true
-    # Enable non-interactively only if not already active.
-    if ufw status &>/dev/null && ! ufw status | grep -q "Status: active"; then
-      yes | ufw enable &>/dev/null || true
-    fi
-  else
-    systemctl enable --now firewalld >/dev/null 2>&1 || true
-    firewall-cmd --permanent --add-service=ssh   >/dev/null || true
-    firewall-cmd --permanent --add-service=http  >/dev/null || true
-    firewall-cmd --permanent --add-service=https >/dev/null || true
-    firewall-cmd --reload >/dev/null || true
-  fi
+  # Use raw iptables (cross-distro). The app's netfilter-persistent
+  # integration will save these on the next rule change.
+  iptables -C INPUT -p tcp --dport 22 -j ACCEPT 2>/dev/null || iptables -A INPUT -p tcp --dport 22 -j ACCEPT
+  iptables -C INPUT -p tcp --dport 80 -j ACCEPT 2>/dev/null || iptables -A INPUT -p tcp --dport 80 -j ACCEPT
+  iptables -C INPUT -p tcp --dport 443 -j ACCEPT 2>/dev/null || iptables -A INPUT -p tcp --dport 443 -j ACCEPT
 else
   log "skipping firewall config (--no-firewall)"
 fi
