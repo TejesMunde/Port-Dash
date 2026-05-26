@@ -215,14 +215,14 @@ if [[ "$need_hash" -eq 1 ]]; then
     if [[ ! -t 0 ]]; then
       if [[ -r /dev/tty ]]; then
         log "stdin is piped; reading password from /dev/tty"
-        exec < /dev/tty
+        TTY_DEV="/dev/tty"
       else
         die "no password supplied and /dev/tty not available (use --password or ADMIN_PASSWORD=...)"
       fi
     fi
     while :; do
-      read -rsp "Admin password for '$ADMIN_USER': " p1; echo
-      read -rsp "Confirm: " p2; echo
+      read -rsp "Admin password for '$ADMIN_USER': " p1 < ${TTY_DEV:-/dev/stdin}; echo
+      read -rsp "Confirm: " p2 < ${TTY_DEV:-/dev/stdin}; echo
       [[ "$p1" == "$p2" && -n "$p1" ]] && { ADMIN_PW="$p1"; break; }
       warn "mismatch or empty, try again"
     done
