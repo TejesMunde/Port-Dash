@@ -115,6 +115,16 @@ else
   fi
 fi
 
+# ---------- clean install: remove previous installation ----------
+if [[ -d "$INSTALL_DIR" ]]; then
+  log "removing previous installation at $INSTALL_DIR"
+  systemctl stop "$SERVICE_NAME" 2>/dev/null || true
+  systemctl disable "$SERVICE_NAME" 2>/dev/null || true
+  rm -rf "$INSTALL_DIR"
+  rm -f "/etc/systemd/system/${SERVICE_NAME}.service"
+  systemctl daemon-reload
+fi
+
 # ---------- get source ----------
 mkdir -p "$INSTALL_DIR"
 if [[ "$SOURCE_MODE" == "git" ]]; then
