@@ -270,12 +270,12 @@ fi
 if [[ "$DO_FIREWALL" -eq 1 ]]; then
   log "configuring firewall (SSH + 80/443; 8080 stays loopback-only)"
   if [[ "$PKG" == "apt" ]]; then
-    ufw allow OpenSSH >/dev/null || ufw allow 22/tcp >/dev/null
-    ufw allow 80/tcp  >/dev/null
-    ufw allow 443/tcp >/dev/null
+    ufw allow OpenSSH &>/dev/null || ufw allow 22/tcp &>/dev/null || true
+    ufw allow 80/tcp  &>/dev/null || true
+    ufw allow 443/tcp &>/dev/null || true
     # Enable non-interactively only if not already active.
-    if ! ufw status | grep -q "Status: active"; then
-      yes | ufw enable >/dev/null
+    if ufw status &>/dev/null && ! ufw status | grep -q "Status: active"; then
+      yes | ufw enable &>/dev/null || true
     fi
   else
     systemctl enable --now firewalld >/dev/null 2>&1 || true
