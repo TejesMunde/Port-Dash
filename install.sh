@@ -15,7 +15,7 @@ DATA_DIR="/var/lib/portforward"
 SERVICE_NAME="portforward"
 DEFAULT_ADMIN="admin"
 
-REPO_URL=""
+REPO_URL="https://github.com/TejesMunde/Port-Dash.git"
 SOURCE_MODE=""        # "git" | "local"
 ADMIN_USER=""
 ADMIN_PW="${ADMIN_PASSWORD:-}"
@@ -66,6 +66,9 @@ if [[ -z "$SOURCE_MODE" ]]; then
   if [[ -f "$SCRIPT_DIR/backend/main.py" && -f "$SCRIPT_DIR/frontend/package.json" ]]; then
     SOURCE_MODE="local"
     log "no --repo/--local given; using local source at $SCRIPT_DIR"
+  elif [[ -n "$REPO_URL" ]]; then
+    SOURCE_MODE="git"
+    log "no --repo/--local given; cloning default repo $REPO_URL"
   else
     die "no source mode chosen and current dir doesn't look like the project. Pass --repo <url> or --local."
   fi
