@@ -1,0 +1,38 @@
+@tailwind base;
+@tailwind components;
+@tailwind utilities;
+
+@layer base {
+  :root {
+    /* Dark by default — modern slate palette */
+    --background: 222 47% 5%;
+    --foreground: 210 20% 96%;
+
+    --card: 222 47% 7%;
+    --card-foreground: 210 20% 96%;
+
+    --primary: 217 91% 60%;
+    --primary-foreground: 222 47% 5%;
+
+    --secondary: 222 47% 11%;
+    --secondary-foreground: 210 20% 96%;
+
+    --muted: 222 47% 11%;
+    --muted-foreground: 215 16% 60%;
+
+    --accent: 222 47% 13%;
+    --accent-foreground: 210 20% 96%;
+
+    --destructive: 0 72% 51%;
+    --destructive-foreground: 210 20% 96%;
+
+    --border: 222 47% 13%;
+    --input: 222 47% 13%;
+    --ring: 217 91% 60%;
+  }
+}
+
+@layer base {
+  * { @apply border-border; }
+  body { @apply bg-background text-foreground; font-feature-settings: "rlig" 1, "calt" 1; }
+}
