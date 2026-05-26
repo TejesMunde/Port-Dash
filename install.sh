@@ -61,7 +61,7 @@ esac
 log "detected ${PRETTY_NAME:-$ID} (pkg=$PKG)"
 
 # ---------- source mode default ----------
-SCRIPT_DIR="$(cd -- "$(dirname -- "${BASH_SOURCE[0]}")" && pwd)"
+SCRIPT_DIR="$(cd -- "$(dirname -- "${BASH_SOURCE[0]:-}")" 2>/dev/null && pwd || echo "")"
 if [[ -z "$SOURCE_MODE" ]]; then
   if [[ -f "$SCRIPT_DIR/backend/main.py" && -f "$SCRIPT_DIR/frontend/package.json" ]]; then
     SOURCE_MODE="local"
@@ -82,8 +82,8 @@ if [[ "$PKG" == "apt" ]]; then
   apt-get install -y --no-install-recommends \
     ca-certificates curl gnupg git \
     python3 python3-venv python3-pip \
-    iptables iptables-persistent \
-    ufw
+    iptables ufw
+  apt-get install -y iptables-persistent 2>/dev/null || true
 
   # Node 20 via NodeSource if system node is missing or <18.
   need_node=1
