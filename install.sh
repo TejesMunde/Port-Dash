@@ -79,10 +79,13 @@ log "installing system packages"
 if [[ "$PKG" == "apt" ]]; then
   export DEBIAN_FRONTEND=noninteractive
   apt-get update -y
+  # ufw conflicts with iptables-persistent; remove it first if present.
+  apt-get remove -y iptables-persistent netfilter-persistent 2>/dev/null || true
   apt-get install -y --no-install-recommends \
     ca-certificates curl gnupg git \
     python3 python3-venv python3-pip \
     iptables ufw
+  # Re-install if desired (may be auto-removed by ufw).
   apt-get install -y iptables-persistent 2>/dev/null || true
 
   # Node 20 via NodeSource if system node is missing or <18.
