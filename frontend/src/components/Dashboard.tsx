@@ -212,7 +212,7 @@ export function Dashboard({ onLogout }: { onLogout: () => void }) {
           </div>
         )}
       </main>
-      <footer className="fixed bottom-0 left-0 p-3 text-[11px] text-muted-foreground/50">
+      <footer className="fixed bottom-3 left-3 px-2.5 py-1 rounded bg-secondary/80 text-[13px] font-mono text-muted-foreground">
         v{updateInfo?.current || "?"}
       </footer>
     </div>
