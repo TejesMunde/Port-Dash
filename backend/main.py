@@ -318,15 +318,7 @@ def toggle_rule(rule_id: int, user: str = Depends(current_user)):
 @app.get("/api/check-update")
 def check_update(user: str = Depends(current_user)):
     current = VERSION_FILE.read_text().strip() if VERSION_FILE.exists() else "0.0.0"
-    latest = current
-    update_available = False
-    try:
-        with urllib.request.urlopen("https://raw.githubusercontent.com/TejesMunde/Port-Dash/main/VERSION", timeout=3) as resp:
-            latest = resp.read().decode().strip()
-        update_available = latest != current
-    except Exception:
-        pass
-    return {"current": current, "latest": latest, "update_available": update_available}
+    return {"current": current}
 
 
 @app.post("/api/update")

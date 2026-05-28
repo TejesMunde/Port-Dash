@@ -95,6 +95,12 @@ export const api = {
   toggleRule: (id: number) =>
     request<Rule>(`/api/rules/${id}/toggle`, { method: "PATCH" }),
   networkInfo: () => request<NetworkInfo>("/api/network-info"),
-  checkUpdate: () => request<UpdateInfo>("/api/check-update"),
+  checkUpdate: () => request<{ current: string }>("/api/check-update"),
   triggerUpdate: () => request<{ ok: boolean; message: string }>("/api/update", { method: "POST" }),
 };
+
+export async function fetchLatestVersion(): Promise<string> {
+  const res = await fetch("https://raw.githubusercontent.com/TejesMunde/Port-Dash/main/VERSION");
+  if (!res.ok) throw new Error("Failed to fetch latest version");
+  return (await res.text()).trim();
+}
