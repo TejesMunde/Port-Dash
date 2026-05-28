@@ -204,6 +204,9 @@ export function Dashboard({ onLogout }: { onLogout: () => void }) {
           </div>
         )}
       </main>
+      <footer className="fixed bottom-0 left-0 p-3 text-[11px] text-muted-foreground/50">
+        v{updateInfo?.current || "?"}
+      </footer>
     </div>
   );
 }
