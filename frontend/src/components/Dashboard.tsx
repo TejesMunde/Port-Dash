@@ -83,6 +83,9 @@ export function Dashboard({ onLogout }: { onLogout: () => void }) {
 
   useEffect(() => {
     load();
+    api.checkUpdate()
+      .then((v) => setUpdateInfo({ current: v.current, latest: v.current, update_available: false }))
+      .catch(() => {});
   }, []);
 
   const handleToggle = async (rule: Rule) => {
