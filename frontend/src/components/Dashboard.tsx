@@ -23,6 +23,7 @@ import {
   Server,
   CircleDot,
   Download,
+  Tag,
 } from "lucide-react";
 
 export function Dashboard({ onLogout }: { onLogout: () => void }) {
@@ -52,8 +53,13 @@ export function Dashboard({ onLogout }: { onLogout: () => void }) {
     try {
       const info = await api.checkUpdate();
       setUpdateInfo(info);
+      if (info.update_available) {
+        alert(`Update available: v${info.current} → v${info.latest}`);
+      } else {
+        alert(`You're on the latest version (v${info.current})`);
+      }
     } catch {
-      // offline or error — ignore
+      alert("Could not check for updates. Is the server reachable?");
     }
   };
 
@@ -73,7 +79,6 @@ export function Dashboard({ onLogout }: { onLogout: () => void }) {
 
   useEffect(() => {
     load();
-    checkUpdate();
   }, []);
 
   const handleToggle = async (rule: Rule) => {
@@ -114,6 +119,9 @@ export function Dashboard({ onLogout }: { onLogout: () => void }) {
           <div className="flex items-center gap-2">
             <Button variant="ghost" size="icon" onClick={load} title="Refresh">
               <RefreshCw className="w-4 h-4" />
+            </Button>
+            <Button variant="ghost" size="icon" onClick={checkUpdate} title="Check version">
+              <Tag className="w-4 h-4" />
             </Button>
             <Button variant="ghost" size="icon" onClick={logout} title="Sign out">
               <LogOut className="w-4 h-4" />
