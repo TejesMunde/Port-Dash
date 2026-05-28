@@ -1,5 +1,5 @@
 import { useEffect, useState } from "react";
-import { api, clearToken, type Rule, type NetworkInfo, type Peer, type UpdateInfo } from "@/lib/api";
+import { api, clearToken, type Rule, type NetworkInfo, type Peer, type UpdateInfo, type LightsailStatus } from "@/lib/api";
 import { Button } from "@/components/ui/button";
 import { Card } from "@/components/ui/card";
 import { Switch } from "@/components/ui/switch";
@@ -34,6 +34,7 @@ export function Dashboard({ onLogout }: { onLogout: () => void }) {
   const [addOpen, setAddOpen] = useState(false);
   const [updateInfo, setUpdateInfo] = useState<UpdateInfo | null>(null);
   const [updating, setUpdating] = useState(false);
+  const [lsStatus, setLsStatus] = useState<LightsailStatus | null>(null);
 
   const load = async () => {
     setLoading(true);
@@ -46,6 +47,14 @@ export function Dashboard({ onLogout }: { onLogout: () => void }) {
       setErr(e.message);
     } finally {
       setLoading(false);
+    }
+  };
+
+  const loadLsStatus = async () => {
+    try {
+      setLsStatus(await api.lightsailStatus());
+    } catch {
+      setLsStatus({ configured: false, reason: "API unreachable" });
     }
   };
 
@@ -79,6 +88,7 @@ export function Dashboard({ onLogout }: { onLogout: () => void }) {
 
   useEffect(() => {
     load();
+    loadLsStatus();
     api.checkUpdate()
       .then((v) => setUpdateInfo({ current: v.current, latest: v.current, update_available: false }))
       .catch(() => {});
@@ -120,6 +130,24 @@ export function Dashboard({ onLogout }: { onLogout: () => void }) {
             <p className="text-sm text-muted-foreground">iptables DNAT rules on this VPS</p>
           </div>
           <div className="flex items-center gap-2">
+            {lsStatus?.configured && (
+              <span
+                className="inline-flex items-center gap-1 text-[11px] px-1.5 py-0.5 rounded bg-green-500/10 text-green-400"
+                title={`Lightsail: ${lsStatus.reason}`}
+              >
+                <span className="w-1.5 h-1.5 rounded-full bg-green-400" />
+                AWS
+              </span>
+            )}
+            {lsStatus && !lsStatus.configured && lsStatus.reason !== "LIGHTSAIL_INSTANCE not set" && (
+              <span
+                className="inline-flex items-center gap-1 text-[11px] px-1.5 py-0.5 rounded bg-red-500/10 text-red-400"
+                title={`Lightsail error: ${lsStatus.reason}`}
+              >
+                <span className="w-1.5 h-1.5 rounded-full bg-red-400" />
+                AWS
+              </span>
+            )}
             <Button variant="ghost" size="icon" onClick={load} title="Refresh">
               <RefreshCw className="w-4 h-4" />
             </Button>

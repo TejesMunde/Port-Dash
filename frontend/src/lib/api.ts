@@ -86,6 +86,11 @@ export type UpdateInfo = {
   update_available: boolean;
 };
 
+export type LightsailStatus = {
+  configured: boolean;
+  reason: string;
+};
+
 export const api = {
   listRules: () => request<Rule[]>("/api/rules"),
   createRule: (r: RuleInput) =>
@@ -97,4 +102,5 @@ export const api = {
   networkInfo: () => request<NetworkInfo>("/api/network-info"),
   checkUpdate: () => request<UpdateInfo>("/api/check-update"),
   triggerUpdate: () => request<{ ok: boolean; message: string }>("/api/update", { method: "POST" }),
+  lightsailStatus: () => request<LightsailStatus>("/api/lightsail-status"),
 };

@@ -155,6 +155,18 @@ def lightsail_open(port: int, protocol: str) -> None:
         print(f"[lightsail] open {port}/{protocol} failed: {e}")
 
 
+def lightsail_status() -> dict:
+    if not LIGHTSAIL_INSTANCE:
+        return {"configured": False, "reason": "LIGHTSAIL_INSTANCE not set"}
+    try:
+        import boto3
+        client = boto3.client("lightsail", region_name=AWS_REGION)
+        client.get_instance_port_states(instanceName=LIGHTSAIL_INSTANCE)
+        return {"configured": True, "reason": "ok"}
+    except Exception as e:
+        return {"configured": False, "reason": str(e)}
+
+
 def lightsail_close(port: int, protocol: str) -> None:
     if not LIGHTSAIL_INSTANCE or DRY_RUN:
         return
@@ -403,6 +415,11 @@ def trigger_update(user: str = Depends(current_user)):
         raise HTTPException(500, f"Update failed: {e.stderr or e.stdout}")
     except Exception as e:
         raise HTTPException(500, f"Update failed: {e}")
+
+
+@app.get("/api/lightsail-status")
+def get_lightsail_status(user: str = Depends(current_user)):
+    return lightsail_status()
 
 
 @app.get("/api/health")
