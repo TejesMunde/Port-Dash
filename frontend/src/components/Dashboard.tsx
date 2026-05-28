@@ -1,5 +1,5 @@
 import { useEffect, useState } from "react";
-import { api, clearToken, fetchLatestVersion, type Rule, type NetworkInfo, type Peer, type UpdateInfo } from "@/lib/api";
+import { api, clearToken, type Rule, type NetworkInfo, type Peer, type UpdateInfo } from "@/lib/api";
 import { Button } from "@/components/ui/button";
 import { Card } from "@/components/ui/card";
 import { Switch } from "@/components/ui/switch";
@@ -51,16 +51,12 @@ export function Dashboard({ onLogout }: { onLogout: () => void }) {
 
   const checkUpdate = async () => {
     try {
-      const [local, latest] = await Promise.all([
-        api.checkUpdate(),
-        fetchLatestVersion(),
-      ]);
-      const updateAvailable = latest !== local.current;
-      setUpdateInfo({ current: local.current, latest, update_available: updateAvailable });
-      if (updateAvailable) {
-        alert(`Update available: v${local.current} → v${latest}`);
+      const info = await api.checkUpdate();
+      setUpdateInfo(info);
+      if (info.update_available) {
+        alert(`Update available: v${info.current} → v${info.latest}`);
       } else {
-        alert(`You're on the latest version (v${local.current})`);
+        alert(`You're on the latest version (v${info.current})`);
       }
     } catch {
       alert("Could not check for updates. Is the server reachable?");
