@@ -6,8 +6,10 @@ User only enters: label, public port, internal port, and picks destination from 
 """
 import json
 import os
+import shutil
 import socket
 import subprocess
+import urllib.request
 from contextlib import asynccontextmanager
 from datetime import datetime, timedelta, timezone
 from pathlib import Path
@@ -29,6 +31,7 @@ ADMIN_PASSWORD_HASH = os.environ.get("ADMIN_PASSWORD_HASH", "")
 TOKEN_EXPIRE_MINUTES = 60 * 24
 DB_PATH = os.environ.get("DB_PATH", "/var/lib/portforward/rules.db")
 DRY_RUN = os.environ.get("DRY_RUN", "0") == "1"
+VERSION_FILE = Path(__file__).parent.parent / "VERSION"
 
 Path(DB_PATH).parent.mkdir(parents=True, exist_ok=True)
 
@@ -96,7 +99,6 @@ def get_self_info() -> dict:
     except (subprocess.TimeoutExpired, FileNotFoundError):
         pass
     try:
-        import urllib.request
         with urllib.request.urlopen("https://checkip.amazonaws.com", timeout=3) as resp:
             info["public_ip"] = resp.read().decode().strip()
     except Exception:
@@ -304,6 +306,43 @@ def toggle_rule(rule_id: int, user: str = Depends(current_user)):
         session.commit()
         session.refresh(rule)
         return rule
+
+
+@app.get("/api/check-update")
+def check_update(user: str = Depends(current_user)):
+    current = VERSION_FILE.read_text().strip() if VERSION_FILE.exists() else "0.0.0"
+    latest = current
+    update_available = False
+    try:
+        with urllib.request.urlopen("https://raw.githubusercontent.com/TejesMunde/Port-Dash/main/VERSION", timeout=3) as resp:
+            latest = resp.read().decode().strip()
+        update_available = latest != current
+    except Exception:
+        pass
+    return {"current": current, "latest": latest, "update_available": update_available}
+
+
+@app.post("/api/update")
+def trigger_update(user: str = Depends(current_user)):
+    INSTALL_DIR = Path("/opt/portforward-dashboard")
+    DATA_DIR = Path("/var/lib/portforward")
+    ENV_BACKUP = DATA_DIR / ".env.backup"
+    try:
+        if (INSTALL_DIR / ".env").exists():
+            shutil.copy2(INSTALL_DIR / ".env", ENV_BACKUP)
+        subprocess.run(["git", "-C", str(INSTALL_DIR), "pull", "--ff-only"], check=True, capture_output=True, text=True)
+        if ENV_BACKUP.exists():
+            shutil.copy2(ENV_BACKUP, INSTALL_DIR / ".env")
+            ENV_BACKUP.unlink()
+        subprocess.run(["npm", "ci", "--no-audit", "--no-fund"], cwd=str(INSTALL_DIR / "frontend"), check=True, capture_output=True, text=True)
+        subprocess.run(["npm", "run", "build"], cwd=str(INSTALL_DIR / "frontend"), check=True, capture_output=True, text=True)
+        subprocess.run([str(INSTALL_DIR / ".venv" / "bin" / "pip"), "install", "-r", str(INSTALL_DIR / "backend" / "requirements.txt")], check=True, capture_output=True, text=True)
+        subprocess.run(["systemctl", "restart", "portforward"], check=True, capture_output=True, text=True)
+        return {"ok": True, "message": "Update complete. Service restarted."}
+    except subprocess.CalledProcessError as e:
+        raise HTTPException(500, f"Update failed: {e.stderr or e.stdout}")
+    except Exception as e:
+        raise HTTPException(500, f"Update failed: {e}")
 
 
 @app.get("/api/health")

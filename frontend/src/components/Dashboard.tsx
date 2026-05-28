@@ -1,5 +1,5 @@
 import { useEffect, useState } from "react";
-import { api, clearToken, type Rule, type NetworkInfo, type Peer } from "@/lib/api";
+import { api, clearToken, type Rule, type NetworkInfo, type Peer, type UpdateInfo } from "@/lib/api";
 import { Button } from "@/components/ui/button";
 import { Card } from "@/components/ui/card";
 import { Switch } from "@/components/ui/switch";
@@ -22,6 +22,7 @@ import {
   Network,
   Server,
   CircleDot,
+  Download,
 } from "lucide-react";
 
 export function Dashboard({ onLogout }: { onLogout: () => void }) {
@@ -30,6 +31,8 @@ export function Dashboard({ onLogout }: { onLogout: () => void }) {
   const [loading, setLoading] = useState(true);
   const [err, setErr] = useState<string | null>(null);
   const [addOpen, setAddOpen] = useState(false);
+  const [updateInfo, setUpdateInfo] = useState<UpdateInfo | null>(null);
+  const [updating, setUpdating] = useState(false);
 
   const load = async () => {
     setLoading(true);
@@ -45,8 +48,32 @@ export function Dashboard({ onLogout }: { onLogout: () => void }) {
     }
   };
 
+  const checkUpdate = async () => {
+    try {
+      const info = await api.checkUpdate();
+      setUpdateInfo(info);
+    } catch {
+      // offline or error — ignore
+    }
+  };
+
+  const handleUpdate = async () => {
+    if (!confirm("Update to latest version? Port rules will be preserved.")) return;
+    setUpdating(true);
+    try {
+      const res = await api.triggerUpdate();
+      alert(res.message);
+      setUpdateInfo(null);
+    } catch (e: any) {
+      setErr(e.message);
+    } finally {
+      setUpdating(false);
+    }
+  };
+
   useEffect(() => {
     load();
+    checkUpdate();
   }, []);
 
   const handleToggle = async (rule: Rule) => {
@@ -96,6 +123,22 @@ export function Dashboard({ onLogout }: { onLogout: () => void }) {
       </header>
 
       <main className="max-w-5xl mx-auto px-6 py-8 space-y-6">
+        {updateInfo?.update_available && (
+          <Card className="p-4 border-blue-500/40 bg-blue-500/10 flex items-center justify-between">
+            <div className="flex items-center gap-3">
+              <Download className="w-5 h-5 text-blue-400" />
+              <div>
+                <p className="text-sm font-medium">Update available</p>
+                <p className="text-xs text-muted-foreground">
+                  v{updateInfo.current} → v{updateInfo.latest}
+                </p>
+              </div>
+            </div>
+            <Button size="sm" onClick={handleUpdate} disabled={updating}>
+              {updating ? "Updating…" : "Update"}
+            </Button>
+          </Card>
+        )}
         {netInfo && <NetworkInfoCard info={netInfo} />}
 
         {err && (

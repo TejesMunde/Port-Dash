@@ -117,6 +117,10 @@ fi
 # ---------- clean install: remove previous installation ----------
 if [[ -d "$INSTALL_DIR" ]]; then
   log "removing previous installation at $INSTALL_DIR"
+  # Backup .env so secrets (SECRET_KEY, passwords, DB_PATH) survive reinstall.
+  if [[ -f "$INSTALL_DIR/.env" ]]; then
+    cp "$INSTALL_DIR/.env" /tmp/portforward-env-backup
+  fi
   systemctl stop "$SERVICE_NAME" 2>/dev/null || true
   systemctl disable "$SERVICE_NAME" 2>/dev/null || true
   rm -rf "$INSTALL_DIR"
@@ -177,6 +181,10 @@ fi
 
 # ---------- .env: preserve existing secrets ----------
 ENV_FILE="$INSTALL_DIR/.env"
+# Restore env backup from a re-run if available.
+if [[ -f /tmp/portforward-env-backup ]] && [[ ! -f "$ENV_FILE" ]]; then
+  mv /tmp/portforward-env-backup "$ENV_FILE"
+fi
 get_env() { [[ -f "$ENV_FILE" ]] && grep -E "^$1=" "$ENV_FILE" | head -n1 | cut -d= -f2- | sed "s/^['\"]//;s/['\"]$//"; }
 
 existing_secret=$(get_env SECRET_KEY || true)
@@ -248,6 +256,7 @@ DB_PATH=$DATA_DIR/rules.db
 DRY_RUN=0
 EOF
 chmod 600 "$ENV_FILE"
+rm -f /tmp/portforward-env-backup
 
 # ---------- systemd unit ----------
 log "installing systemd unit"

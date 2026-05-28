@@ -78,6 +78,12 @@ export async function login(username: string, password: string) {
   setToken(data.access_token);
 }
 
+export type UpdateInfo = {
+  current: string;
+  latest: string;
+  update_available: boolean;
+};
+
 export const api = {
   listRules: () => request<Rule[]>("/api/rules"),
   createRule: (r: RuleInput) =>
@@ -87,4 +93,6 @@ export const api = {
   toggleRule: (id: number) =>
     request<Rule>(`/api/rules/${id}/toggle`, { method: "PATCH" }),
   networkInfo: () => request<NetworkInfo>("/api/network-info"),
+  checkUpdate: () => request<UpdateInfo>("/api/check-update"),
+  triggerUpdate: () => request<{ ok: boolean; message: string }>("/api/update", { method: "POST" }),
 };
