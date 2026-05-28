@@ -58,6 +58,7 @@ export type Peer = {
   ip: string;
   os: string;
   online: boolean;
+  tags: string[];
 };
 
 export type NetworkInfo = {
@@ -65,6 +66,7 @@ export type NetworkInfo = {
   self_public_ip: string | null;
   self_tailscale_ip: string | null;
   peers: Peer[];
+  tag_filter: string;
 };
 
 export async function login(username: string, password: string) {

@@ -31,6 +31,7 @@ ADMIN_PASSWORD_HASH = os.environ.get("ADMIN_PASSWORD_HASH", "")
 TOKEN_EXPIRE_MINUTES = 60 * 24
 DB_PATH = os.environ.get("DB_PATH", "/var/lib/portforward/rules.db")
 DRY_RUN = os.environ.get("DRY_RUN", "0") == "1"
+TAILSCALE_TAG_FILTER = os.environ.get("TAILSCALE_TAG_FILTER", "")
 VERSION_FILE = Path(__file__).parent.parent / "VERSION"
 
 Path(DB_PATH).parent.mkdir(parents=True, exist_ok=True)
@@ -56,9 +57,9 @@ def get_tailscale_peers() -> list[dict]:
     """Return Tailscale peers (excluding self) with hostname + IP."""
     if DRY_RUN:
         return [
-            {"hostname": "pelican", "ip": "100.126.142.84", "os": "linux", "online": True},
-            {"hostname": "tejes-laptop", "ip": "100.64.10.5", "os": "windows", "online": True},
-            {"hostname": "r530-proxmox", "ip": "100.64.20.3", "os": "linux", "online": False},
+            {"hostname": "pelican", "ip": "100.126.142.84", "os": "linux", "online": True, "tags": ["tag:shared"]},
+            {"hostname": "tejes-laptop", "ip": "100.64.10.5", "os": "windows", "online": True, "tags": []},
+            {"hostname": "r530-proxmox", "ip": "100.64.20.3", "os": "linux", "online": False, "tags": []},
         ]
     try:
         result = subprocess.run(
@@ -77,7 +78,10 @@ def get_tailscale_peers() -> list[dict]:
                 "ip": ips[0],
                 "os": peer.get("OS", ""),
                 "online": peer.get("Online", False),
+                "tags": peer.get("Tags") or [],
             })
+        if TAILSCALE_TAG_FILTER:
+            peers = [p for p in peers if TAILSCALE_TAG_FILTER in p["tags"]]
         peers.sort(key=lambda p: (not p["online"], p["hostname"]))
         return peers
     except (subprocess.TimeoutExpired, FileNotFoundError, json.JSONDecodeError):
@@ -194,6 +198,7 @@ class Peer(BaseModel):
     ip: str
     os: str
     online: bool
+    tags: list[str]
 
 
 class NetworkInfo(BaseModel):
@@ -201,6 +206,7 @@ class NetworkInfo(BaseModel):
     self_public_ip: Optional[str]
     self_tailscale_ip: Optional[str]
     peers: list[Peer]
+    tag_filter: str = ""
 
 
 @asynccontextmanager
@@ -235,6 +241,7 @@ def network_info(user: str = Depends(current_user)):
         self_public_ip=self_info["public_ip"],
         self_tailscale_ip=self_info["tailscale_ip"],
         peers=[Peer(**p) for p in peers],
+        tag_filter=TAILSCALE_TAG_FILTER,
     )
 
 

@@ -175,7 +175,9 @@ export function Dashboard({ onLogout }: { onLogout: () => void }) {
 
         {!canAddRule && netInfo && (
           <Card className="p-4 border-yellow-500/40 bg-yellow-500/10 text-yellow-200 text-sm">
-            No online Tailscale peers detected. Make sure your destination machine is connected to the same tailnet.
+            {netInfo.tag_filter
+              ? `No online Tailscale peers with tag "${netInfo.tag_filter}" found.`
+              : "No online Tailscale peers detected. Make sure your destination machine is connected to the same tailnet."}
           </Card>
         )}
 
@@ -244,6 +246,11 @@ function NetworkInfoCard({ info }: { info: NetworkInfo }) {
                 />
                 <span className="font-medium">{p.hostname}</span>
                 <span className="text-muted-foreground font-mono">{p.ip}</span>
+                {p.tags.map((t) => (
+                  <span key={t} className="px-1 py-0.5 rounded bg-blue-500/20 text-blue-400 text-[10px] font-mono">
+                    {t}
+                  </span>
+                ))}
               </div>
             ))}
           </div>

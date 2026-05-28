@@ -254,6 +254,7 @@ ADMIN_USERNAME=$ADMIN_USER
 ADMIN_PASSWORD_HASH='$ADMIN_HASH'
 DB_PATH=$DATA_DIR/rules.db
 DRY_RUN=0
+# TAILSCALE_TAG_FILTER=tag:shared   # uncomment to only show peers with this tag
 EOF
 chmod 600 "$ENV_FILE"
 rm -f /tmp/portforward-env-backup
