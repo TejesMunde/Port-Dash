@@ -32,6 +32,8 @@ TOKEN_EXPIRE_MINUTES = 60 * 24
 DB_PATH = os.environ.get("DB_PATH", "/var/lib/portforward/rules.db")
 DRY_RUN = os.environ.get("DRY_RUN", "0") == "1"
 TAILSCALE_TAG_FILTER = os.environ.get("TAILSCALE_TAG_FILTER", "")
+LIGHTSAIL_INSTANCE = os.environ.get("LIGHTSAIL_INSTANCE", "")
+AWS_REGION = os.environ.get("AWS_REGION", "ap-south-1")
 VERSION_FILE = Path(__file__).parent.parent / "VERSION"
 
 Path(DB_PATH).parent.mkdir(parents=True, exist_ok=True)
@@ -136,6 +138,35 @@ def remove_rule(rule: ForwardRule) -> None:
         "-j", "DNAT", "--to-destination", f"{rule.dest_ip}:{rule.dest_port}",
     ])
     _run(["netfilter-persistent", "save"])
+
+
+# ----- Lightsail firewall -----
+def lightsail_open(port: int, protocol: str) -> None:
+    if not LIGHTSAIL_INSTANCE or DRY_RUN:
+        return
+    try:
+        import boto3
+        client = boto3.client("lightsail", region_name=AWS_REGION)
+        client.open_instance_public_ports(
+            instanceName=LIGHTSAIL_INSTANCE,
+            portInfo={"fromPort": port, "toPort": port, "protocol": protocol},
+        )
+    except Exception as e:
+        print(f"[lightsail] open {port}/{protocol} failed: {e}")
+
+
+def lightsail_close(port: int, protocol: str) -> None:
+    if not LIGHTSAIL_INSTANCE or DRY_RUN:
+        return
+    try:
+        import boto3
+        client = boto3.client("lightsail", region_name=AWS_REGION)
+        client.close_instance_public_ports(
+            instanceName=LIGHTSAIL_INSTANCE,
+            portInfo={"fromPort": port, "toPort": port, "protocol": protocol},
+        )
+    except Exception as e:
+        print(f"[lightsail] close {port}/{protocol} failed: {e}")
 
 
 # ----- Auth -----
@@ -281,6 +312,7 @@ def create_rule(rule_in: RuleIn, user: str = Depends(current_user)):
         session.refresh(rule)
         if rule.enabled:
             apply_rule(rule)
+            lightsail_open(rule.public_port, rule.protocol)
         return rule
 
 
@@ -292,6 +324,15 @@ def delete_rule(rule_id: int, user: str = Depends(current_user)):
             raise HTTPException(404, "Rule not found")
         if rule.enabled:
             remove_rule(rule)
+            others = session.exec(
+                select(ForwardRule)
+                .where(ForwardRule.public_port == rule.public_port)
+                .where(ForwardRule.protocol == rule.protocol)
+                .where(ForwardRule.enabled == True)
+                .where(ForwardRule.id != rule.id)
+            ).first()
+            if not others:
+                lightsail_close(rule.public_port, rule.protocol)
         session.delete(rule)
         session.commit()
     return Response(status_code=status.HTTP_204_NO_CONTENT)
@@ -306,9 +347,19 @@ def toggle_rule(rule_id: int, user: str = Depends(current_user)):
         if rule.enabled:
             remove_rule(rule)
             rule.enabled = False
+            others = session.exec(
+                select(ForwardRule)
+                .where(ForwardRule.public_port == rule.public_port)
+                .where(ForwardRule.protocol == rule.protocol)
+                .where(ForwardRule.enabled == True)
+                .where(ForwardRule.id != rule.id)
+            ).first()
+            if not others:
+                lightsail_close(rule.public_port, rule.protocol)
         else:
             apply_rule(rule)
             rule.enabled = True
+            lightsail_open(rule.public_port, rule.protocol)
         session.add(rule)
         session.commit()
         session.refresh(rule)

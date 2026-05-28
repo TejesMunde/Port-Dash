@@ -255,6 +255,8 @@ ADMIN_PASSWORD_HASH='$ADMIN_HASH'
 DB_PATH=$DATA_DIR/rules.db
 DRY_RUN=0
 # TAILSCALE_TAG_FILTER=tag:shared   # uncomment to only show peers with this tag
+# LIGHTSAIL_INSTANCE=my-instance    # uncomment + set AWS credentials to sync ports to Lightsail firewall
+# AWS_REGION=ap-south-1
 EOF
 chmod 600 "$ENV_FILE"
 rm -f /tmp/portforward-env-backup

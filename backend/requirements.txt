@@ -4,3 +4,4 @@ sqlmodel==0.0.22
 passlib[argon2]==1.7.4
 python-jose[cryptography]==3.3.0
 python-multipart==0.0.12
+boto3==1.35.0
