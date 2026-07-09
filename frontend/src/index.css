@@ -6,25 +6,18 @@
   :root {
     --background: 0 0% 0%;
     --foreground: 0 0% 93%;
-
     --card: 0 0% 4%;
     --card-foreground: 0 0% 93%;
-
     --primary: 0 0% 90%;
     --primary-foreground: 0 0% 0%;
-
     --secondary: 0 0% 8%;
     --secondary-foreground: 0 0% 90%;
-
     --muted: 0 0% 8%;
     --muted-foreground: 0 0% 45%;
-
     --accent: 0 0% 10%;
     --accent-foreground: 0 0% 93%;
-
     --destructive: 0 70% 50%;
     --destructive-foreground: 0 0% 93%;
-
     --border: 0 0% 12%;
     --input: 0 0% 12%;
     --ring: 0 0% 70%;
@@ -35,8 +28,5 @@
   * { @apply border-border; }
   body {
     @apply bg-background text-foreground font-sans antialiased;
-    font-feature-settings: "rlig" 1, "calt" 1;
-    background-image: radial-gradient(rgba(255,255,255,0.04) 1px, transparent 1px);
-    background-size: 24px 24px;
   }
 }

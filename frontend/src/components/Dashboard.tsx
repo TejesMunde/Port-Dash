@@ -12,19 +12,6 @@ import {
   DialogTitle,
   DialogTrigger,
 } from "@/components/ui/dialog";
-import {
-  Plus,
-  Trash2,
-  LogOut,
-  RefreshCw,
-  ArrowRight,
-  Globe,
-  Network,
-  Server,
-  CircleDot,
-  Download,
-  Tag,
-} from "lucide-react";
 
 export function Dashboard({ onLogout }: { onLogout: () => void }) {
   const [rules, setRules] = useState<Rule[]>([]);
@@ -106,15 +93,14 @@ export function Dashboard({ onLogout }: { onLogout: () => void }) {
 
   const handleToggle = async (rule: Rule) => {
     const prev = rules;
-    const newEnabled = !rule.enabled;
-    setRules(rules.map((r) => (r.id === rule.id ? { ...r, enabled: newEnabled } : r)));
-    setRuleErrors((prev) => ({ ...prev, [rule.id]: "" }));
+    setRules(rules.map((r) => (r.id === rule.id ? { ...r, enabled: !rule.enabled } : r)));
+    setRuleErrors((p) => ({ ...p, [rule.id]: "" }));
     try {
       const updated = await api.toggleRule(rule.id);
       setRules(rules.map((r) => (r.id === updated.id ? updated : r)));
     } catch (e: any) {
       setRules(prev.map((r) => (r.id === rule.id ? { ...r, enabled: rule.enabled } : r)));
-      setRuleErrors((prev) => ({ ...prev, [rule.id]: e.message }));
+      setRuleErrors((p) => ({ ...p, [rule.id]: e.message }));
     }
   };
 
@@ -135,10 +121,10 @@ export function Dashboard({ onLogout }: { onLogout: () => void }) {
     }
     const prev = rules;
     setRules(rules.filter((r) => r.id !== rule.id));
-    setRuleErrors((prev) => ({ ...prev, [rule.id]: "" }));
+    setRuleErrors((p) => ({ ...p, [rule.id]: "" }));
     api.deleteRule(rule.id).catch((e: any) => {
       setRules(prev);
-      setRuleErrors((errs) => ({ ...errs, [rule.id]: e.message }));
+      setRuleErrors((p) => ({ ...p, [rule.id]: e.message }));
     });
   };
 
@@ -153,57 +139,38 @@ export function Dashboard({ onLogout }: { onLogout: () => void }) {
   return (
     <div className="min-h-screen">
       <header className="border-b border-border">
-        <div className="max-w-5xl mx-auto px-6 py-3 flex items-center justify-between">
+        <div className="max-w-5xl mx-auto px-4 py-2.5 flex items-center justify-between">
           <div>
-            <h1 className="text-xl font-semibold">Port Forwards</h1>
-            <p className="text-sm text-muted-foreground">iptables DNAT rules on this VPS</p>
+            <h1 className="text-base font-semibold">Port Forwards</h1>
+            <p className="text-xs text-muted-foreground">iptables DNAT rules</p>
           </div>
-          <div className="flex items-center gap-2">
+          <div className="flex items-center gap-1.5">
             {lsStatus?.configured && (
-              <span
-                className="inline-flex items-center gap-1 text-[11px] px-1.5 py-0.5 rounded bg-green-500/10 text-green-400"
-                title={`Lightsail: ${lsStatus.reason}`}
-              >
-                <span className="w-1.5 h-1.5 rounded-full bg-green-400" />
-                AWS
+              <span className="text-[10px] px-1.5 py-0.5 rounded bg-green-500/10 text-green-400 flex items-center gap-1">
+                <span className="w-1.5 h-1.5 rounded-full bg-green-400 inline-block" /> AWS
               </span>
             )}
             {lsStatus && !lsStatus.configured && lsStatus.reason !== "LIGHTSAIL_INSTANCE not set" && (
-              <span
-                className="inline-flex items-center gap-1 text-[11px] px-1.5 py-0.5 rounded bg-red-500/10 text-red-400"
-                title={`Lightsail error: ${lsStatus.reason}`}
-              >
-                <span className="w-1.5 h-1.5 rounded-full bg-red-400" />
-                AWS
+              <span className="text-[10px] px-1.5 py-0.5 rounded bg-red-500/10 text-red-400 flex items-center gap-1">
+                <span className="w-1.5 h-1.5 rounded-full bg-red-400 inline-block" /> AWS
               </span>
             )}
-            <Button variant="ghost" size="icon" onClick={load} title="Refresh">
-              <RefreshCw className="w-4 h-4" />
-            </Button>
-            <Button variant="ghost" size="icon" onClick={checkUpdate} title="Check version">
-              <Tag className="w-4 h-4" />
-            </Button>
-            <Button variant="ghost" size="icon" onClick={logout} title="Sign out">
-              <LogOut className="w-4 h-4" />
-            </Button>
+            <Button variant="ghost" size="icon" onClick={load} title="Refresh">\u21bb</Button>
+            <Button variant="ghost" size="icon" onClick={checkUpdate} title="Version">\u2318</Button>
+            <Button variant="ghost" size="icon" onClick={logout} title="Sign out">\u2190</Button>
           </div>
         </div>
       </header>
 
-      <main className="max-w-5xl mx-auto px-6 py-6 space-y-4">
-        {err && (
-          <p className="text-xs text-destructive">{err}</p>
-        )}
+      <main className="max-w-5xl mx-auto px-4 py-4 space-y-3">
+        {err && <p className="text-xs text-red-500">{err}</p>}
         {updateInfo?.update_available && (
-          <Card className="p-3 border-border bg-secondary flex items-center justify-between rounded-md shadow-none">
-            <div className="flex items-center gap-3">
-              <Download className="w-5 h-5 text-foreground" />
-              <div>
-                <p className="text-sm font-medium">Update available</p>
-                <p className="text-xs text-muted-foreground">
-                  v{updateInfo.current} \u2192 v{updateInfo.latest}
-                </p>
-              </div>
+          <Card className="p-3 flex items-center justify-between">
+            <div className="flex items-center gap-2">
+              <span className="text-sm font-medium">Update available</span>
+              <span className="text-xs text-muted-foreground">
+                v{updateInfo.current} \u2192 v{updateInfo.latest}
+              </span>
             </div>
             <Button size="sm" onClick={handleUpdate} disabled={updating}>
               {updating ? "Updating\u2026" : "Update"}
@@ -214,16 +181,15 @@ export function Dashboard({ onLogout }: { onLogout: () => void }) {
 
         <div className="flex items-center justify-between">
           <div>
-            <h2 className="text-lg font-semibold">Active forwards</h2>
-            <p className="text-sm text-muted-foreground">
+            <h2 className="text-sm font-semibold">Active forwards</h2>
+            <p className="text-xs text-muted-foreground">
               {rules.length} rule{rules.length !== 1 ? "s" : ""}
             </p>
           </div>
           <Dialog open={addOpen} onOpenChange={setAddOpen}>
             <DialogTrigger asChild>
               <Button disabled={!canAddRule}>
-                <Plus className="w-4 h-4" />
-                Add forward
+                + Add forward
               </Button>
             </DialogTrigger>
             {netInfo && (
@@ -239,24 +205,24 @@ export function Dashboard({ onLogout }: { onLogout: () => void }) {
         </div>
 
         {!canAddRule && netInfo && (
-          <Card className="p-3 border-border bg-secondary text-muted-foreground text-sm rounded-md shadow-none">
+          <Card className="p-3 text-xs text-muted-foreground">
             {netInfo.tag_filter
               ? `No online Tailscale peers with tag "${netInfo.tag_filter}" found.`
-              : "No online Tailscale peers detected. Make sure your destination machine is connected to the same tailnet."}
+              : "No online Tailscale peers detected."}
           </Card>
         )}
 
         {loading && cachedRules.current.length === 0 ? (
-          <Card className="p-6 text-center text-muted-foreground rounded-md shadow-none">Loading\u2026</Card>
+          <Card className="p-5 text-center text-xs text-muted-foreground">Loading\u2026</Card>
         ) : rules.length === 0 ? (
-          <Card className="p-8 text-center rounded-md shadow-none">
-            <p className="text-muted-foreground">No forwards yet.</p>
-            <p className="text-sm text-muted-foreground mt-1">
-              {canAddRule ? "Click 'Add forward' to create one." : "Connect a Tailscale peer first."}
+          <Card className="p-5 text-center">
+            <p className="text-xs text-muted-foreground">No forwards yet.</p>
+            <p className="text-xs text-muted-foreground mt-1">
+              {canAddRule ? "Click '+ Add forward' to create one." : ""}
             </p>
           </Card>
         ) : (
-          <div className="space-y-1.5">
+          <div className="space-y-1">
             {rules.map((rule) => (
               <RuleRow
                 key={rule.id}
@@ -271,7 +237,7 @@ export function Dashboard({ onLogout }: { onLogout: () => void }) {
           </div>
         )}
       </main>
-      <footer className="fixed bottom-3 left-3 px-2.5 py-1 rounded bg-secondary/80 text-[13px] text-muted-foreground">
+      <footer className="fixed bottom-3 left-3 px-2 py-0.5 rounded bg-secondary/80 text-[11px] text-muted-foreground">
         v{updateInfo?.current || "?"}
       </footer>
     </div>
@@ -280,46 +246,37 @@ export function Dashboard({ onLogout }: { onLogout: () => void }) {
 
 function NetworkInfoCard({ info }: { info: NetworkInfo }) {
   return (
-    <Card className="p-3 rounded-md shadow-none">
-      <div className="grid grid-cols-1 md:grid-cols-3 gap-3">
-        <InfoItem
-          icon={<Server className="w-4 h-4" />}
-          label="This host"
-          value={info.self_hostname}
-        />
-        <InfoItem
-          icon={<Globe className="w-4 h-4" />}
-          label="Public IP"
-          value={info.self_public_ip || "\u2014"}
-        />
-        <InfoItem
-          icon={<Network className="w-4 h-4" />}
-          label="Tailscale IP"
-          value={info.self_tailscale_ip || "\u2014"}
-        />
+    <Card className="p-3">
+      <div className="grid grid-cols-1 md:grid-cols-3 gap-2 text-xs">
+        <div>
+          <span className="text-muted-foreground uppercase tracking-wide">Host</span>
+          <div className="mt-0.5 truncate">{info.self_hostname}</div>
+        </div>
+        <div>
+          <span className="text-muted-foreground uppercase tracking-wide">Public IP</span>
+          <div className="mt-0.5 truncate">{info.self_public_ip || "\u2014"}</div>
+        </div>
+        <div>
+          <span className="text-muted-foreground uppercase tracking-wide">Tailscale IP</span>
+          <div className="mt-0.5 truncate">{info.self_tailscale_ip || "\u2014"}</div>
+        </div>
       </div>
       {info.peers.length > 0 && (
-        <div className="mt-3 pt-3 border-t border-border">
-          <div className="text-xs text-muted-foreground mb-1.5 uppercase tracking-wide">
-            Tailscale peers ({info.peers.filter((p) => p.online).length} online)
+        <div className="mt-2 pt-2 border-t border-border">
+          <div className="text-[10px] text-muted-foreground uppercase tracking-wide mb-1">
+            Peers ({info.peers.filter((p) => p.online).length} online)
           </div>
-          <div className="flex flex-wrap gap-1.5">
+          <div className="flex flex-wrap gap-1">
             {info.peers.map((p) => (
               <div
                 key={p.hostname}
-                className="inline-flex items-center gap-1.5 px-2 py-1 rounded-md bg-secondary text-secondary-foreground text-xs"
+                className="inline-flex items-center gap-1 px-1.5 py-0.5 rounded bg-secondary text-secondary-foreground text-[11px]"
               >
-                <CircleDot
-                  className={`w-3 h-3 ${
-                    p.online ? "text-green-400" : "text-muted-foreground"
-                  }`}
-                />
+                <span className={`w-2 h-2 rounded-full inline-block ${p.online ? "bg-green-400" : "bg-muted-foreground"}`} />
                 <span className="font-medium">{p.hostname}</span>
                 <span className="text-muted-foreground">{p.ip}</span>
                 {p.tags.map((t) => (
-                  <span key={t} className="px-1 py-0.5 rounded bg-secondary text-muted-foreground text-[10px]">
-                    {t}
-                  </span>
+                  <span key={t} className="px-1 rounded bg-secondary text-muted-foreground text-[9px]">{t}</span>
                 ))}
               </div>
             ))}
@@ -327,26 +284,6 @@ function NetworkInfoCard({ info }: { info: NetworkInfo }) {
         </div>
       )}
     </Card>
-  )
-}
-
-function InfoItem({
-  icon,
-  label,
-  value,
-}: {
-  icon: React.ReactNode;
-  label: string;
-  value: string;
-}) {
-  return (
-    <div>
-      <div className="flex items-center gap-1 text-xs text-muted-foreground uppercase tracking-wide">
-        {icon}
-        {label}
-      </div>
-      <div className="text-sm mt-0.5 truncate">{value}</div>
-    </div>
   );
 }
 
@@ -367,33 +304,27 @@ function RuleRow({
 }) {
   return (
     <div>
-      <Card className={`p-2.5 flex items-center gap-3 rounded-md shadow-none ${isDeleteConfirm ? "border-destructive/50" : ""}`}>
+      <Card className={`p-2 flex items-center gap-2 ${isDeleteConfirm ? "border-red-500/50" : ""}`}>
         <Switch checked={rule.enabled} onCheckedChange={onToggle} />
         <div className="flex-1 min-w-0">
-          <div className="flex items-center gap-2">
+          <div className="flex items-center gap-1.5">
             <span className="font-medium truncate text-sm">{rule.label}</span>
-            <span className="text-[10px] px-1.5 py-0.5 rounded bg-secondary text-secondary-foreground uppercase">
+            <span className="text-[9px] px-1 py-0.5 rounded bg-secondary text-secondary-foreground uppercase">
               {rule.protocol}
             </span>
           </div>
-          <div className="flex items-center gap-1.5 text-xs text-muted-foreground mt-0.5">
-            <span>
-              {publicIp || "<this-host>"}:{rule.public_port}
-            </span>
-            <ArrowRight className="w-2.5 h-2.5" />
-            <span>
-              {rule.dest_hostname}:{rule.dest_port}
-            </span>
-            <span className="text-[10px]">({rule.dest_ip})</span>
+          <div className="flex items-center gap-1 text-[11px] text-muted-foreground mt-0.5">
+            <span>{publicIp || "<this-host>"}:{rule.public_port}</span>
+            <span>\u2192</span>
+            <span>{rule.dest_hostname}:{rule.dest_port}</span>
+            <span className="text-[9px]">({rule.dest_ip})</span>
           </div>
         </div>
         <Button variant={isDeleteConfirm ? "destructive" : "ghost"} size="icon" onClick={onDelete}>
-          <Trash2 className="w-4 h-4" />
+          {isDeleteConfirm ? "\u2713" : "\u2715"}
         </Button>
       </Card>
-      {error && (
-        <p className="text-[11px] text-destructive mt-0.5 ml-1">{error}</p>
-      )}
+      {error && <p className="text-[10px] text-red-500 mt-0.5 ml-1">{error}</p>}
     </div>
   );
 }
@@ -435,79 +366,50 @@ function AddRuleDialog({
   };
 
   return (
-    <DialogContent>
+    <DialogContent className="p-5">
       <DialogHeader>
         <DialogTitle>New port forward</DialogTitle>
       </DialogHeader>
-      <form onSubmit={submit} className="space-y-2.5">
+      <form onSubmit={submit} className="space-y-2.5 mt-3 px-5">
         <div>
-          <label className="text-xs text-muted-foreground">Label</label>
-          <Input
-            placeholder="Minecraft server"
-            value={label}
-            onChange={(e) => setLabel(e.target.value)}
-            required
-            autoFocus
-          />
+          <label className="text-[11px] text-muted-foreground">Label</label>
+          <Input placeholder="Minecraft server" value={label} onChange={(e: any) => setLabel(e.target.value)} required autoFocus />
         </div>
-
         <div>
-          <label className="text-xs text-muted-foreground">Destination machine</label>
-          <select
-            value={destHostname}
-            onChange={(e) => setDestHostname(e.target.value)}
-            className="flex h-9 w-full rounded-md border border-input bg-background px-3 py-2 text-sm"
+          <label className="text-[11px] text-muted-foreground">Destination machine</label>
+            <select
+              value={destHostname}
+              onChange={(e: any) => setDestHostname(e.target.value)}
+            className="flex h-9 w-full rounded border border-input bg-background px-3 py-2 text-sm"
             required
           >
             {peers.map((p) => (
-              <option key={p.hostname} value={p.hostname}>
-                {p.hostname} ({p.ip})
-              </option>
+              <option key={p.hostname} value={p.hostname}>{p.hostname} ({p.ip})</option>
             ))}
           </select>
         </div>
-
-        <div className="grid grid-cols-2 gap-2.5">
+        <div className="grid grid-cols-2 gap-2">
           <div>
-            <label className="text-xs text-muted-foreground">Public port</label>
-            <Input
-              type="number"
-              placeholder="25565"
-              value={publicPort}
-              onChange={(e) => setPublicPort(e.target.value)}
-              required
-              min={1}
-              max={65535}
-            />
+            <label className="text-[11px] text-muted-foreground">Public port</label>
+            <Input type="number" placeholder="25565" value={publicPort} onChange={(e: any) => setPublicPort(e.target.value)} required min={1} max={65535} />
           </div>
           <div>
-            <label className="text-xs text-muted-foreground">Internal port</label>
-            <Input
-              type="number"
-              placeholder="9015"
-              value={destPort}
-              onChange={(e) => setDestPort(e.target.value)}
-              required
-              min={1}
-              max={65535}
-            />
+            <label className="text-[11px] text-muted-foreground">Internal port</label>
+            <Input type="number" placeholder="9015" value={destPort} onChange={(e: any) => setDestPort(e.target.value)} required min={1} max={65535} />
           </div>
         </div>
-
         <div>
-          <label className="text-xs text-muted-foreground">Protocol</label>
+          <label className="text-[11px] text-muted-foreground">Protocol</label>
           <select
             value={protocol}
             onChange={(e) => setProtocol(e.target.value as "tcp" | "udp")}
-            className="flex h-9 w-full rounded-md border border-input bg-background px-3 py-2 text-sm"
+            className="flex h-9 w-full rounded border border-input bg-background px-3 py-2 text-sm"
           >
             <option value="tcp">TCP</option>
             <option value="udp">UDP</option>
           </select>
         </div>
-
-        {err && <p className="text-xs text-destructive">{err}</p>}
-
+        {err && <p className="text-xs text-red-500">{err}</p>}
         <DialogFooter>
           <Button type="submit" disabled={busy}>
             {busy ? "Creating\u2026" : "Create"}
