@@ -70,7 +70,7 @@ export function Dashboard({ onLogout }: { onLogout: () => void }) {
       const info = await api.checkUpdate();
       setUpdateInfo(info);
       if (info.update_available) {
-        alert(`Update available: v${info.current} → v${info.latest}`);
+        alert(`Update available: v${info.current} \u2192 v${info.latest}`);
       } else {
         alert(`You're on the latest version (v${info.current})`);
       }
@@ -195,13 +195,13 @@ export function Dashboard({ onLogout }: { onLogout: () => void }) {
           <p className="text-xs text-destructive">{err}</p>
         )}
         {updateInfo?.update_available && (
-          <Card className="p-3 border-blue-500/40 bg-blue-500/10 flex items-center justify-between rounded-md shadow-none">
+          <Card className="p-3 border-border bg-secondary flex items-center justify-between rounded-md shadow-none">
             <div className="flex items-center gap-3">
-              <Download className="w-5 h-5 text-blue-400" />
+              <Download className="w-5 h-5 text-foreground" />
               <div>
                 <p className="text-sm font-medium">Update available</p>
                 <p className="text-xs text-muted-foreground">
-                  v{updateInfo.current} → v{updateInfo.latest}
+                  v{updateInfo.current} \u2192 v{updateInfo.latest}
                 </p>
               </div>
             </div>
@@ -239,7 +239,7 @@ export function Dashboard({ onLogout }: { onLogout: () => void }) {
         </div>
 
         {!canAddRule && netInfo && (
-          <Card className="p-3 border-yellow-500/40 bg-yellow-500/10 text-yellow-200 text-sm rounded-md shadow-none">
+          <Card className="p-3 border-border bg-secondary text-muted-foreground text-sm rounded-md shadow-none">
             {netInfo.tag_filter
               ? `No online Tailscale peers with tag "${netInfo.tag_filter}" found.`
               : "No online Tailscale peers detected. Make sure your destination machine is connected to the same tailnet."}
@@ -317,7 +317,7 @@ function NetworkInfoCard({ info }: { info: NetworkInfo }) {
                 <span className="font-medium">{p.hostname}</span>
                 <span className="text-muted-foreground">{p.ip}</span>
                 {p.tags.map((t) => (
-                  <span key={t} className="px-1 py-0.5 rounded bg-blue-500/20 text-blue-400 text-[10px]">
+                  <span key={t} className="px-1 py-0.5 rounded bg-secondary text-muted-foreground text-[10px]">
                     {t}
                   </span>
                 ))}
@@ -327,7 +327,7 @@ function NetworkInfoCard({ info }: { info: NetworkInfo }) {
         </div>
       )}
     </Card>
-  );
+  )
 }
 
 function InfoItem({
