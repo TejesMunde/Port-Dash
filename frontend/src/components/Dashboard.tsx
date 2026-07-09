@@ -155,9 +155,9 @@ export function Dashboard({ onLogout }: { onLogout: () => void }) {
                 <span className="w-1.5 h-1.5 rounded-full bg-red-400 inline-block" /> AWS
               </span>
             )}
-            <Button variant="ghost" size="icon" onClick={load} title="Refresh">\u21bb</Button>
-            <Button variant="ghost" size="icon" onClick={checkUpdate} title="Version">\u2318</Button>
-            <Button variant="ghost" size="icon" onClick={logout} title="Sign out">\u2190</Button>
+            <Button variant="ghost" size="icon" onClick={load} title="Refresh">R</Button>
+            <Button variant="ghost" size="icon" onClick={checkUpdate} title="Version">V</Button>
+            <Button variant="ghost" size="icon" onClick={logout} title="Sign out">X</Button>
           </div>
         </div>
       </header>
