@@ -4,35 +4,39 @@
 
 @layer base {
   :root {
-    /* Dark by default — modern slate palette */
-    --background: 222 47% 5%;
-    --foreground: 210 20% 96%;
+    --background: 0 0% 0%;
+    --foreground: 0 0% 93%;
 
-    --card: 222 47% 7%;
-    --card-foreground: 210 20% 96%;
+    --card: 0 0% 4%;
+    --card-foreground: 0 0% 93%;
 
-    --primary: 217 91% 60%;
-    --primary-foreground: 222 47% 5%;
+    --primary: 0 0% 90%;
+    --primary-foreground: 0 0% 0%;
 
-    --secondary: 222 47% 11%;
-    --secondary-foreground: 210 20% 96%;
+    --secondary: 0 0% 8%;
+    --secondary-foreground: 0 0% 90%;
 
-    --muted: 222 47% 11%;
-    --muted-foreground: 215 16% 60%;
+    --muted: 0 0% 8%;
+    --muted-foreground: 0 0% 45%;
 
-    --accent: 222 47% 13%;
-    --accent-foreground: 210 20% 96%;
+    --accent: 0 0% 10%;
+    --accent-foreground: 0 0% 93%;
 
-    --destructive: 0 72% 51%;
-    --destructive-foreground: 210 20% 96%;
+    --destructive: 0 70% 50%;
+    --destructive-foreground: 0 0% 93%;
 
-    --border: 222 47% 13%;
-    --input: 222 47% 13%;
-    --ring: 217 91% 60%;
+    --border: 0 0% 12%;
+    --input: 0 0% 12%;
+    --ring: 0 0% 70%;
   }
 }
 
 @layer base {
   * { @apply border-border; }
-  body { @apply bg-background text-foreground font-mono; font-feature-settings: "rlig" 1, "calt" 1; }
+  body {
+    @apply bg-background text-foreground font-sans antialiased;
+    font-feature-settings: "rlig" 1, "calt" 1;
+    background-image: radial-gradient(rgba(255,255,255,0.04) 1px, transparent 1px);
+    background-size: 24px 24px;
+  }
 }
