@@ -34,5 +34,5 @@
 
 @layer base {
   * { @apply border-border; }
-  body { @apply bg-background text-foreground; font-feature-settings: "rlig" 1, "calt" 1; }
+  body { @apply bg-background text-foreground font-mono; font-feature-settings: "rlig" 1, "calt" 1; }
 }
