@@ -17,7 +17,7 @@ export default {
         destructive: { DEFAULT: "hsl(var(--destructive))", foreground: "hsl(var(--destructive-foreground))" },
         card: { DEFAULT: "hsl(var(--card))", foreground: "hsl(var(--card-foreground))" },
       },
-      borderRadius: { lg: "0.75rem", md: "0.5rem", sm: "0.375rem" },
+      borderRadius: { lg: "0.5rem", md: "0.375rem", sm: "0.25rem" },
     },
   },
   plugins: [],
