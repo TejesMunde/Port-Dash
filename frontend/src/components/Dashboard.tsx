@@ -266,8 +266,9 @@ export function Dashboard({ onLogout }: { onLogout: () => void }) {
 
       {/* PlayStation Blue anchors the bottom of the channel. */}
       <footer className="bg-primary text-white">
-        <div className="mx-auto w-full max-w-[1280px] px-4 md:px-12 py-8 flex items-center justify-between gap-4">
-          <span className="text-[14px]">Port Forward Dashboard</span>
+        {/* Micro Caption (12px / 500) is the system's footer microcopy tier. */}
+        <div className="mx-auto w-full max-w-[1280px] px-4 md:px-12 py-3 flex items-center justify-between gap-4">
+          <span className="text-[12px] font-medium">Port Forward Dashboard</span>
           <span className="text-[12px] font-medium text-white/70">v{updateInfo?.current || "?"}</span>
         </div>
       </footer>
