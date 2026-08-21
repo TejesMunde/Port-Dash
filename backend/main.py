@@ -15,8 +15,9 @@ from datetime import datetime, timedelta, timezone
 from pathlib import Path
 from typing import Optional
 
-from fastapi import Depends, FastAPI, HTTPException, Response, status
+from fastapi import Depends, FastAPI, HTTPException, Request, Response, status
 from fastapi.middleware.cors import CORSMiddleware
+from fastapi.responses import FileResponse, StreamingResponse
 from fastapi.security import OAuth2PasswordBearer, OAuth2PasswordRequestForm
 from fastapi.staticfiles import StaticFiles
 from jose import JWTError, jwt
@@ -428,5 +429,80 @@ def health():
 
 
 FRONTEND_DIST = Path(__file__).parent.parent / "frontend" / "dist"
+
+VIDEO_CHUNK = 256 * 1024
+
+
+def _parse_range(header: Optional[str], size: int):
+    """Resolve a Range header to an inclusive (start, end) pair.
+
+    Returns None for an absent/unparseable header (caller should send the whole
+    file) and raises ValueError when the range is unsatisfiable (caller sends 416).
+    Handles open-ended 'bytes=500-' and suffix 'bytes=-500' forms.
+    """
+    if not header or not header.strip().lower().startswith("bytes="):
+        return None
+    spec = header.split("=", 1)[1].split(",")[0].strip()
+    start_s, sep, end_s = spec.partition("-")
+    if not sep:
+        return None
+    # Parse failures fall back to "no range"; only a well-formed but unsatisfiable
+    # range raises, so the int() conversions get their own narrow try.
+    try:
+        start = int(start_s) if start_s else None
+        end = int(end_s) if end_s else None
+    except ValueError:
+        return None
+    if start is None and end is None:
+        return None
+    if start is None:
+        # suffix form: last N bytes
+        if end <= 0:
+            raise ValueError("empty suffix range")
+        return max(0, size - end), size - 1
+    if end is None:
+        end = size - 1
+    if start < 0 or start >= size or end < start:
+        raise ValueError("unsatisfiable range")
+    return start, min(end, size - 1)
+
+
+# Starlette 0.38's StaticFiles ignores Range, so a looping <video> has to pull the
+# entire file in one response before it can play. Serving this one asset with 206
+# support lets the browser stream it in chunks instead. Registered ahead of the
+# catch-all mount below so it wins the route match.
+@app.get("/night-sky.mp4")
+def background_video(request: Request):
+    path = FRONTEND_DIST / "night-sky.mp4"
+    if not path.exists():
+        raise HTTPException(404, "background video not found")
+    size = path.stat().st_size
+    headers = {"accept-ranges": "bytes", "cache-control": "public, max-age=604800"}
+    try:
+        rng = _parse_range(request.headers.get("range"), size)
+    except ValueError:
+        return Response(status_code=416, headers={**headers, "content-range": f"bytes */{size}"})
+    if rng is None:
+        return FileResponse(path, media_type="video/mp4", headers=headers)
+
+    start, end = rng
+    length = end - start + 1
+
+    def stream():
+        with open(path, "rb") as f:
+            f.seek(start)
+            left = length
+            while left > 0:
+                data = f.read(min(VIDEO_CHUNK, left))
+                if not data:
+                    break
+                left -= len(data)
+                yield data
+
+    headers["content-range"] = f"bytes {start}-{end}/{size}"
+    headers["content-length"] = str(length)
+    return StreamingResponse(stream(), status_code=206, media_type="video/mp4", headers=headers)
+
+
 if FRONTEND_DIST.exists():
     app.mount("/", StaticFiles(directory=FRONTEND_DIST, html=True), name="frontend")

@@ -8,7 +8,9 @@ export default function App() {
   return (
     <>
       {/* Served from this host (frontend/public/night-sky.mp4), not the origin mirror.
-          muted + playsInline are what make autoplay legal in every browser. */}
+          muted + playsInline are what make autoplay legal in every browser.
+          preload="metadata" + the backend's 206 support mean this streams in chunks
+          as it plays rather than downloading all 38MB before the first frame. */}
       <video
         className="fixed inset-0 -z-20 h-full w-full object-cover"
         src="/night-sky.mp4"
@@ -16,7 +18,7 @@ export default function App() {
         loop
         muted
         playsInline
-        preload="auto"
+        preload="metadata"
         aria-hidden="true"
       />
       {/* Shadow Wash 80 — the system's scrim for text sitting over photography. */}
