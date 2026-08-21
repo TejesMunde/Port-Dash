@@ -146,12 +146,12 @@ export function Dashboard({ onLogout }: { onLogout: () => void }) {
   const canAddRule = onlinePeers.length > 0;
 
   return (
-    // Three-surface channel, dark throughout: an atmospheric masthead, a Console
-    // Black content field, and the blue footer anchor.
-    <div className="min-h-screen flex flex-col bg-background">
-      {/* The dark section gradient (#121314 → #000000) gives the masthead a vignette
-          without a hue shift. It never inverts at any scroll position. */}
-      <header className="bg-section-dark">
+    // Transparent so the background loop reads through; the masthead and cards are
+    // the only opaque surfaces, and the blue footer still anchors the bottom.
+    <div className="min-h-screen flex flex-col">
+      {/* Translucent Console Black: keeps the masthead reading as a solid bar while
+          letting the background through. It never inverts at any scroll position. */}
+      <header className="bg-black/70">
         <div className="mx-auto w-full max-w-[1280px] px-4 md:px-12 py-6 flex items-center justify-between gap-4">
           <div>
             <h1 className="display text-[28px] md:text-[35px] text-white tracking-[0.1px]">Port forwards</h1>

@@ -25,9 +25,8 @@ export function LoginScreen({ onSuccess }: { onSuccess: () => void }) {
   };
 
   return (
-    // Sign-in is a product-forward zone, so it sits on the dark section gradient
-    // and frames the white card the way black framing is used around hardware.
-    <div className="min-h-screen bg-section-dark grid place-items-center p-4">
+    // Transparent so the background loop carries through behind the sign-in card.
+    <div className="min-h-screen grid place-items-center p-4">
       <div className="w-full max-w-md">
         <div className="text-center mb-10">
           <h1 className="display text-[44px] text-white tracking-[0.1px]">Port Forward</h1>
