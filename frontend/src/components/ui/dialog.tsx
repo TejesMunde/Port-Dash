@@ -1,4 +1,7 @@
-import { useEffect, useRef } from "react";
+import { Children, cloneElement, createContext, useContext, useEffect, useRef } from "react";
+import type { ReactElement } from "react";
+
+const OpenChangeCtx = createContext<(v: boolean) => void>(() => {});
 
 export function Dialog({
   open,
@@ -26,28 +29,43 @@ export function Dialog({
     return () => el.removeEventListener("close", close);
   }, [onOpenChange]);
 
+  // The trigger must render outside <dialog> and regardless of `open`,
+  // otherwise there is nothing left on the page to open the dialog with.
+  const kids = Children.toArray(children) as ReactElement[];
+  const trigger = kids.find((k) => k && k.type === DialogTrigger);
+  const content = kids.filter((k) => k !== trigger);
+
   return (
-    <dialog
-      ref={ref}
-      className="backdrop:bg-black/60 backdrop:backdrop-blur-sm open:flex"
-      style={{
-        maxWidth: "32rem",
-        width: "100%",
-        margin: "auto",
-        padding: 0,
-        border: "1px solid hsl(var(--border))",
-        borderRadius: "0.375rem",
-        background: "hsl(var(--card))",
-        color: "hsl(var(--card-foreground))",
-      }}
-    >
-      {open && children}
-    </dialog>
+    <OpenChangeCtx.Provider value={onOpenChange}>
+      {trigger}
+      <dialog
+        ref={ref}
+        className="backdrop:bg-black/60 backdrop:backdrop-blur-sm open:flex"
+        style={{
+          maxWidth: "32rem",
+          width: "100%",
+          margin: "auto",
+          padding: 0,
+          border: "1px solid hsl(var(--border))",
+          borderRadius: "0.375rem",
+          background: "hsl(var(--card))",
+          color: "hsl(var(--card-foreground))",
+        }}
+      >
+        {open && content}
+      </dialog>
+    </OpenChangeCtx.Provider>
   );
 }
 
-export function DialogTrigger({ children, asChild: _asChild }: { children: React.ReactElement; asChild?: boolean }) {
-  return children;
+export function DialogTrigger({ children }: { children: ReactElement; asChild?: boolean }) {
+  const onOpenChange = useContext(OpenChangeCtx);
+  return cloneElement(children, {
+    onClick: (e: React.MouseEvent) => {
+      children.props.onClick?.(e);
+      onOpenChange(true);
+    },
+  } as any);
 }
 
 export function DialogContent({ className, children }: { className?: string; children?: React.ReactNode }) {

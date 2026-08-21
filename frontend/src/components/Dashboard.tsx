@@ -169,7 +169,7 @@ export function Dashboard({ onLogout }: { onLogout: () => void }) {
             <div className="flex items-center gap-2">
               <span className="text-sm font-medium">Update available</span>
               <span className="text-xs text-muted-foreground">
-                v{updateInfo.current} \u2192 v{updateInfo.latest}
+                v{updateInfo.current} → v{updateInfo.latest}
               </span>
             </div>
             <Button size="sm" onClick={handleUpdate} disabled={updating}>
@@ -213,7 +213,7 @@ export function Dashboard({ onLogout }: { onLogout: () => void }) {
         )}
 
         {loading && cachedRules.current.length === 0 ? (
-          <Card className="p-5 text-center text-xs text-muted-foreground">Loading\u2026</Card>
+          <Card className="p-5 text-center text-xs text-muted-foreground">Loading…</Card>
         ) : rules.length === 0 ? (
           <Card className="p-5 text-center">
             <p className="text-xs text-muted-foreground">No forwards yet.</p>
@@ -315,7 +315,7 @@ function RuleRow({
           </div>
           <div className="flex items-center gap-1 text-[11px] text-muted-foreground mt-0.5">
             <span>{publicIp || "<this-host>"}:{rule.public_port}</span>
-            <span>\u2192</span>
+            <span>→</span>
             <span>{rule.dest_hostname}:{rule.dest_port}</span>
             <span className="text-[9px]">({rule.dest_ip})</span>
           </div>
