@@ -1,5 +1,5 @@
 import { useEffect, useRef, useState } from "react";
-import { api, clearToken, type Rule, type NetworkInfo, type Peer, type UpdateInfo, type LightsailStatus } from "@/lib/api";
+import { api, clearToken, type Rule, type RuleInput, type NetworkInfo, type Peer, type UpdateInfo, type LightsailStatus } from "@/lib/api";
 import { Button } from "@/components/ui/button";
 import { Card } from "@/components/ui/card";
 import { Switch } from "@/components/ui/switch";
@@ -195,9 +195,9 @@ export function Dashboard({ onLogout }: { onLogout: () => void }) {
             {netInfo && (
               <AddRuleDialog
                 peers={onlinePeers}
-                onCreated={(r) => {
-                  setRules([...rules, r]);
-                  setAddOpen(false);
+                onCreated={(created, allSucceeded) => {
+                  if (created.length) setRules((rs) => [...rs, ...created]);
+                  if (allSucceeded) setAddOpen(false);
                 }}
               />
             )}
@@ -329,18 +329,43 @@ function RuleRow({
   );
 }
 
+// "both" means one rule per protocol. Sequential on purpose: each create shells out
+// to iptables and writes SQLite, and a half-succeeded run must keep the rule that landed.
+export async function createForProtocols(
+  protocol: "tcp" | "udp" | "both",
+  base: Omit<RuleInput, "protocol">,
+  create: (r: RuleInput) => Promise<Rule>
+): Promise<{ created: Rule[]; error: string | null }> {
+  const protocols: ("tcp" | "udp")[] = protocol === "both" ? ["tcp", "udp"] : [protocol];
+  const created: Rule[] = [];
+  for (const proto of protocols) {
+    try {
+      created.push(await create({ ...base, protocol: proto }));
+    } catch (e: any) {
+      const done = created.map((r) => r.protocol.toUpperCase()).join(" + ");
+      return {
+        created,
+        error: done
+          ? `${done} rule created, but ${proto.toUpperCase()} failed: ${e.message}`
+          : e.message,
+      };
+    }
+  }
+  return { created, error: null };
+}
+
 function AddRuleDialog({
   peers,
   onCreated,
 }: {
   peers: Peer[];
-  onCreated: (r: Rule) => void;
+  onCreated: (created: Rule[], allSucceeded: boolean) => void;
 }) {
   const [label, setLabel] = useState("");
   const [publicPort, setPublicPort] = useState("");
   const [destHostname, setDestHostname] = useState(peers[0]?.hostname || "");
   const [destPort, setDestPort] = useState("");
-  const [protocol, setProtocol] = useState<"tcp" | "udp">("tcp");
+  const [protocol, setProtocol] = useState<"tcp" | "udp" | "both">("tcp");
   const [err, setErr] = useState<string | null>(null);
   const [busy, setBusy] = useState(false);
 
@@ -348,21 +373,20 @@ function AddRuleDialog({
     e.preventDefault();
     setErr(null);
     setBusy(true);
-    try {
-      const r = await api.createRule({
+    const { created, error } = await createForProtocols(
+      protocol,
+      {
         label,
         public_port: parseInt(publicPort),
-        protocol,
         dest_hostname: destHostname,
         dest_port: parseInt(destPort),
         enabled: true,
-      });
-      onCreated(r);
-    } catch (e: any) {
-      setErr(e.message);
-    } finally {
-      setBusy(false);
-    }
+      },
+      api.createRule
+    );
+    setErr(error);
+    onCreated(created, error === null);
+    setBusy(false);
   };
 
   return (
@@ -402,11 +426,12 @@ function AddRuleDialog({
           <label className="text-[11px] text-muted-foreground">Protocol</label>
           <select
             value={protocol}
-            onChange={(e) => setProtocol(e.target.value as "tcp" | "udp")}
+            onChange={(e) => setProtocol(e.target.value as "tcp" | "udp" | "both")}
             className="flex h-9 w-full rounded border border-input bg-background px-3 py-2 text-sm"
           >
             <option value="tcp">TCP</option>
             <option value="udp">UDP</option>
+            <option value="both">TCP + UDP</option>
           </select>
         </div>
         {err && <p className="text-xs text-red-500">{err}</p>}
