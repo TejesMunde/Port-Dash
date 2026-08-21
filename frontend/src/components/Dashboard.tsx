@@ -16,7 +16,7 @@ import {
 // Selects are plain elements rather than a component, matched to Input's shape:
 // 3px radius, Mute Gray border, 2px blue focus ring.
 const SELECT_CLASS =
-  "flex h-12 w-full rounded-sm border border-input bg-white px-3 py-2 text-[16px] text-foreground " +
+  "flex h-12 w-full rounded-sm border border-input bg-background px-3 py-2 text-[16px] text-foreground " +
   "transition-[border-color,box-shadow] duration-180 ease-out " +
   "focus-visible:outline-none focus-visible:shadow-[0_0_0_2px_hsl(var(--primary))]";
 
@@ -146,10 +146,12 @@ export function Dashboard({ onLogout }: { onLogout: () => void }) {
   const canAddRule = onlinePeers.length > 0;
 
   return (
-    // Three-surface channel: black masthead, white content, blue footer anchor.
-    <div className="min-h-screen flex flex-col bg-section-light">
-      {/* Masthead stays Console Black at every scroll position — it never inverts. */}
-      <header className="bg-black">
+    // Three-surface channel, dark throughout: an atmospheric masthead, a Console
+    // Black content field, and the blue footer anchor.
+    <div className="min-h-screen flex flex-col bg-background">
+      {/* The dark section gradient (#121314 → #000000) gives the masthead a vignette
+          without a hue shift. It never inverts at any scroll position. */}
+      <header className="bg-section-dark">
         <div className="mx-auto w-full max-w-[1280px] px-4 md:px-12 py-6 flex items-center justify-between gap-4">
           <div>
             <h1 className="display text-[28px] md:text-[35px] text-white tracking-[0.1px]">Port forwards</h1>
@@ -158,7 +160,7 @@ export function Dashboard({ onLogout }: { onLogout: () => void }) {
           <div className="flex items-center gap-2">
             {lsStatus?.configured && (
               <span
-                className="hidden sm:inline-flex items-center gap-2 bg-white text-black text-[14px] font-medium px-4 py-2 rounded-full"
+                className="hidden sm:inline-flex items-center gap-2 bg-white/10 text-white text-[14px] font-medium px-4 py-2 rounded-full"
                 title={`Lightsail: ${lsStatus.reason}`}
               >
                 <span className="w-2 h-2 rounded-full bg-primary" />
@@ -167,7 +169,7 @@ export function Dashboard({ onLogout }: { onLogout: () => void }) {
             )}
             {lsStatus && !lsStatus.configured && lsStatus.reason !== "LIGHTSAIL_INSTANCE not set" && (
               <span
-                className="hidden sm:inline-flex items-center gap-2 bg-white text-destructive text-[14px] font-medium px-4 py-2 rounded-full"
+                className="hidden sm:inline-flex items-center gap-2 bg-white/10 text-destructive text-[14px] font-medium px-4 py-2 rounded-full"
                 title={`Lightsail error: ${lsStatus.reason}`}
               >
                 <span className="w-2 h-2 rounded-full bg-destructive" />
@@ -291,7 +293,7 @@ function NetworkInfoCard({ info }: { info: NetworkInfo }) {
         </div>
       </div>
       {info.peers.length > 0 && (
-        <div className="mt-8 pt-8 border-t border-[#f3f3f3]">
+        <div className="mt-8 pt-8 border-t border-border">
           <div className="text-[14px] text-muted-foreground mb-4">
             Tailscale peers ({info.peers.filter((p) => p.online).length} online)
           </div>
@@ -301,12 +303,12 @@ function NetworkInfoCard({ info }: { info: NetworkInfo }) {
                 key={p.hostname}
                 className="inline-flex items-center gap-2 px-4 py-2 rounded-full bg-secondary text-[14px]"
               >
-                {/* Blue for online, Mute Gray for offline — this system has no green. */}
-                <span className={`w-2 h-2 rounded-full ${p.online ? "bg-primary" : "bg-[#cccccc]"}`} />
+                {/* Blue for online, Body Gray for offline — this system has no green. */}
+                <span className={`w-2 h-2 rounded-full ${p.online ? "bg-primary" : "bg-[#6b6b6b]"}`} />
                 <span className="font-medium">{p.hostname}</span>
                 <span className="text-muted-foreground">{p.ip}</span>
                 {p.tags.map((t) => (
-                  <span key={t} className="px-2 py-0.5 rounded-3xl bg-white text-muted-foreground text-[12px] font-medium">
+                  <span key={t} className="px-2 py-0.5 rounded-3xl bg-background text-muted-foreground text-[12px] font-medium">
                     {t}
                   </span>
                 ))}

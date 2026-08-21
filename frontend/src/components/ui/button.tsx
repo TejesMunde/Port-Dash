@@ -21,7 +21,7 @@ const variantClasses: Record<Variant, string> = {
   outline: "bg-white text-primary !border-black " + SIGNATURE,
   secondary: "bg-secondary text-secondary-foreground " + SIGNATURE,
   // Transparent ghost — nav-optimized, quiet at rest.
-  ghost: "bg-transparent text-foreground !border-[#dedede] " + SIGNATURE,
+  ghost: "bg-transparent text-foreground !border-[#1f1f1f] " + SIGNATURE,
 };
 
 // Icon Circle lightens on hover instead of taking the scale/ring treatment, so
