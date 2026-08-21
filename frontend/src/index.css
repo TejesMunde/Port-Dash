@@ -4,29 +4,49 @@
 
 @layer base {
   :root {
-    --background: 0 0% 0%;
-    --foreground: 0 0% 93%;
-    --card: 0 0% 4%;
-    --card-foreground: 0 0% 93%;
-    --primary: 0 0% 90%;
-    --primary-foreground: 0 0% 0%;
-    --secondary: 0 0% 8%;
-    --secondary-foreground: 0 0% 90%;
-    --muted: 0 0% 8%;
-    --muted-foreground: 0 0% 45%;
-    --accent: 0 0% 10%;
-    --accent-foreground: 0 0% 93%;
-    --destructive: 0 70% 50%;
-    --destructive-foreground: 0 0% 93%;
-    --border: 0 0% 12%;
-    --input: 0 0% 12%;
-    --ring: 0 0% 70%;
+    /* PlayStation palette. Hex values are the source of truth; HSL is what Tailwind consumes. */
+    --background: 0 0% 100%;        /* Paper White      #ffffff */
+    --foreground: 0 0% 12%;         /* Deep Charcoal    #1f1f1f */
+
+    --card: 0 0% 100%;              /* Paper White      #ffffff */
+    --card-foreground: 0 0% 12%;    /* Deep Charcoal    #1f1f1f */
+
+    --primary: 207 100% 40%;        /* PlayStation Blue #0070cc */
+    --primary-foreground: 0 0% 100%;
+
+    --secondary: 216 33% 97%;       /* Ice Mist         #f5f7fa */
+    --secondary-foreground: 0 0% 12%;
+
+    --muted: 0 0% 95%;              /* Divider Tint     #f3f3f3 */
+    --muted-foreground: 0 0% 42%;   /* Body Gray        #6b6b6b */
+
+    /* Interaction only. Never a resting background or text color. */
+    --accent: 194 76% 49%;          /* PlayStation Cyan #1eaedb */
+    --accent-foreground: 0 0% 100%;
+
+    --destructive: 349 76% 45%;     /* Warning Red      #c81b3a */
+    --destructive-foreground: 0 0% 100%;
+
+    --border: 0 0% 87%;             /*                  #dedede */
+    --input: 0 0% 80%;              /* Mute Gray        #cccccc */
+    --ring: 207 100% 40%;           /* PlayStation Blue #0070cc */
+
+    --link-on-dark: 207 100% 66%;   /* Dark-Link Blue   #53b1ff */
   }
 }
 
 @layer base {
-  * { @apply border-border; }
+  * {
+    @apply border-border;
+  }
   body {
-    @apply bg-background text-foreground font-sans antialiased;
+    @apply bg-background text-foreground antialiased;
+    /* SST is Sony-proprietary; Arial/Helvetica is the fallback the system specifies. */
+    font-family: "SST", "PlayStation SST", Arial, Helvetica, sans-serif;
+  }
+  /* Weight 300 at 22px and up is the display voice — never bold a display headline. */
+  .display {
+    font-weight: 300;
+    line-height: 1.25;
   }
 }

@@ -25,32 +25,35 @@ export function LoginScreen({ onSuccess }: { onSuccess: () => void }) {
   };
 
   return (
-    <div className="min-h-screen grid place-items-center p-4">
-      <Card className="w-full max-w-sm p-5">
-        <div className="text-center mb-4">
-          <div className="mx-auto mb-2 text-2xl font-bold text-foreground">PF</div>
-          <h1 className="text-lg font-semibold">Port Forward</h1>
-          <p className="text-sm text-muted-foreground mt-0.5">Sign in to manage iptables rules</p>
+    // Sign-in is a product-forward zone, so it sits on the dark section gradient
+    // and frames the white card the way black framing is used around hardware.
+    <div className="min-h-screen bg-section-dark grid place-items-center p-4">
+      <div className="w-full max-w-md">
+        <div className="text-center mb-10">
+          <h1 className="display text-[44px] text-white tracking-[0.1px]">Port Forward</h1>
+          <p className="text-[18px] text-white/60 mt-3">Sign in to manage iptables rules</p>
         </div>
-        <form onSubmit={submit} className="space-y-3">
-          <Input
-            autoFocus
-            placeholder="Username"
-            value={username}
-            onChange={(e: any) => setUsername(e.target.value)}
-          />
-          <Input
-            type="password"
-            placeholder="Password"
-            value={password}
-            onChange={(e: any) => setPassword(e.target.value)}
-          />
-          {err && <p className="text-xs text-red-500">{err}</p>}
-          <Button type="submit" disabled={busy} className="w-full">
-            {busy ? "Signing in\u2026" : "Sign in"}
-          </Button>
-        </form>
-      </Card>
+        <Card className="p-8 rounded-4xl shadow-ps-4">
+          <form onSubmit={submit} className="space-y-5">
+            <Input
+              autoFocus
+              placeholder="Username"
+              value={username}
+              onChange={(e: any) => setUsername(e.target.value)}
+            />
+            <Input
+              type="password"
+              placeholder="Password"
+              value={password}
+              onChange={(e: any) => setPassword(e.target.value)}
+            />
+            {err && <p className="text-[14px] text-destructive">{err}</p>}
+            <Button type="submit" disabled={busy} className="w-full">
+              {busy ? "Signing in…" : "Sign in"}
+            </Button>
+          </form>
+        </Card>
+      </div>
     </div>
   );
 }
