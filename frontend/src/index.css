@@ -41,10 +41,14 @@
     @apply border-border;
   }
   html {
+    /* Black canvas only: it paints beneath the negative-z video layer and shows
+       during overscroll. Body must stay transparent or its paint would cover
+       the background loop entirely (negative z-index sits below body's paint). */
     background-color: hsl(var(--background));
   }
   body {
-    @apply bg-background text-foreground antialiased;
+    @apply text-foreground antialiased;
+    background-color: transparent;
     /* SST is Sony-proprietary; Arial/Helvetica is the fallback the system specifies. */
     font-family: "SST", "PlayStation SST", Arial, Helvetica, sans-serif;
   }

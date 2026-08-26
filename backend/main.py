@@ -9,7 +9,9 @@ import os
 import shutil
 import socket
 import subprocess
+import time
 import urllib.request
+from concurrent.futures import ThreadPoolExecutor
 from contextlib import asynccontextmanager
 from datetime import datetime, timedelta, timezone
 from pathlib import Path
@@ -180,6 +182,65 @@ def lightsail_close(port: int, protocol: str) -> None:
         )
     except Exception as e:
         print(f"[lightsail] close {port}/{protocol} failed: {e}")
+
+
+# ----- Verification -----
+# A rule is only useful when BOTH are true: AWS lets the packet in, and something
+# is listening at the other end. We check them separately so the UI can say which
+# half is broken instead of just "not working".
+PROBE_TIMEOUT = 3.0
+_LS_TTL = 5.0
+_ls_cache: Optional[tuple[float, list[dict]]] = None
+
+
+def _lightsail_ports() -> tuple[Optional[list[dict]], str]:
+    """(port_states, reason). port_states is None when AWS cannot be asked at all."""
+    global _ls_cache
+    if not LIGHTSAIL_INSTANCE:
+        return None, "LIGHTSAIL_INSTANCE not set"
+    now = time.monotonic()
+    if _ls_cache and now - _ls_cache[0] < _LS_TTL:
+        return _ls_cache[1], "ok"
+    try:
+        import boto3
+        client = boto3.client("lightsail", region_name=AWS_REGION)
+        states = client.get_instance_port_states(instanceName=LIGHTSAIL_INSTANCE)["portStates"]
+        _ls_cache = (now, states)
+        return states, "ok"
+    except Exception as e:
+        return None, str(e)
+
+
+def _firewall_state(port: int, protocol: str, states: Optional[list[dict]], reason: str) -> tuple[str, str]:
+    if states is None:
+        return "unconfigured", reason
+    for st in states:
+        if st.get("protocol") != protocol:
+            continue
+        # Lightsail returns ranges, not single ports.
+        if st.get("fromPort", 0) <= port <= st.get("toPort", 0) and st.get("state") == "open":
+            return "open", f"open in AWS ({st.get('fromPort')}-{st.get('toPort')}/{protocol})"
+    return "closed", "not open in the AWS firewall"
+
+
+def _probe_backend(rule: "ForwardRule") -> tuple[str, str]:
+    """TCP-connect the destination. A UDP-only listener legitimately refuses TCP,
+    so a refusal on a UDP rule is 'unknown', never a failure."""
+    sock = socket.socket()
+    sock.settimeout(PROBE_TIMEOUT)
+    try:
+        sock.connect((rule.dest_ip, rule.dest_port))
+        return "reachable", "destination accepted a connection"
+    except ConnectionRefusedError:
+        if rule.protocol == "udp":
+            return "unknown", "UDP cannot be probed; destination refused TCP"
+        return "refused", "nothing is listening on the destination port"
+    except socket.timeout:
+        return "timeout", "destination did not respond"
+    except OSError as e:
+        return "unknown", str(e)
+    finally:
+        sock.close()
 
 
 # ----- Auth -----
@@ -416,6 +477,37 @@ def trigger_update(user: str = Depends(current_user)):
         raise HTTPException(500, f"Update failed: {e.stderr or e.stdout}")
     except Exception as e:
         raise HTTPException(500, f"Update failed: {e}")
+
+
+class RuleStatus(BaseModel):
+    id: int
+    firewall: str
+    firewall_detail: str
+    backend: str
+    backend_detail: str
+    connectable: bool
+
+
+@app.get("/api/rules/status", response_model=list[RuleStatus])
+def rules_status(user: str = Depends(current_user)):
+    """Live state of every rule. One AWS call for all rules, probes run in parallel."""
+    with Session(engine) as session:
+        rules = list(session.exec(select(ForwardRule).order_by(ForwardRule.public_port)).all())
+    states, reason = _lightsail_ports()
+    with ThreadPoolExecutor(max_workers=8) as pool:
+        probes = list(pool.map(_probe_backend, rules))
+    out = []
+    for rule, (backend, backend_detail) in zip(rules, probes):
+        firewall, firewall_detail = _firewall_state(rule.public_port, rule.protocol, states, reason)
+        out.append(RuleStatus(
+            id=rule.id,
+            firewall=firewall,
+            firewall_detail=firewall_detail,
+            backend=backend,
+            backend_detail=backend_detail,
+            connectable=rule.enabled and firewall == "open" and backend == "reachable",
+        ))
+    return out
 
 
 @app.get("/api/lightsail-status")

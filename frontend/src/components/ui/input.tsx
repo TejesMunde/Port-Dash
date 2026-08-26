@@ -7,7 +7,7 @@ export function Input({ className, ...props }: { className?: string; [key: strin
   return (
     <input
       className={cn(
-        "flex h-12 w-full rounded-sm border border-input bg-background px-3 py-2",
+        "flex h-12 w-full rounded-sm border border-input bg-white/5 px-3 py-2",
         "text-[16px] text-foreground placeholder:text-white/60",
         "transition-[border-color,box-shadow] duration-180 ease-out",
         "focus-visible:outline-none focus-visible:shadow-[0_0_0_2px_hsl(var(--primary))]",

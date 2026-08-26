@@ -1,5 +1,5 @@
 import { useEffect, useRef, useState } from "react";
-import { api, clearToken, type Rule, type RuleInput, type NetworkInfo, type Peer, type UpdateInfo, type LightsailStatus } from "@/lib/api";
+import { api, clearToken, type Rule, type RuleInput, type NetworkInfo, type Peer, type UpdateInfo, type LightsailStatus, type RuleStatus } from "@/lib/api";
 import { Button } from "@/components/ui/button";
 import { Card } from "@/components/ui/card";
 import { Switch } from "@/components/ui/switch";
@@ -33,8 +33,11 @@ export function Dashboard({ onLogout }: { onLogout: () => void }) {
   const [lsStatus, setLsStatus] = useState<LightsailStatus | null>(null);
   const [ruleErrors, setRuleErrors] = useState<Record<number, string>>({});
   const [confirmDeleteId, setConfirmDeleteId] = useState<number | null>(null);
+  const [statuses, setStatuses] = useState<Record<number, RuleStatus>>({});
+  const [verifying, setVerifying] = useState<number[]>([]);
   const cachedRules = useRef<Rule[]>([]);
   const deleteTimeoutRef = useRef<ReturnType<typeof setTimeout> | null>(null);
+  const cleanup = useRef<(() => void) | null>(null);
 
   const load = async () => {
     setLoading(true);
@@ -58,6 +61,30 @@ export function Dashboard({ onLogout }: { onLogout: () => void }) {
       setLsStatus(await api.lightsailStatus());
     } catch {
       setLsStatus({ configured: false, reason: "API unreachable" });
+    }
+  };
+
+  const refreshStatuses = async (): Promise<RuleStatus[]> => {
+    try {
+      const list = await api.rulesStatus();
+      setStatuses(Object.fromEntries(list.map((st) => [st.id, st])));
+      return list;
+    } catch {
+      return [];
+    }
+  };
+
+  // AWS applies a firewall change a few seconds after the API returns, so the
+  // create call alone proves nothing. Poll until the ports actually report open.
+  const verifyOpen = async (ids: number[]) => {
+    setVerifying(ids);
+    try {
+      for (let attempt = 0; attempt < VERIFY_ATTEMPTS; attempt++) {
+        await new Promise((r) => setTimeout(r, VERIFY_INTERVAL_MS));
+        if (verificationSettled(ids, await refreshStatuses())) return;
+      }
+    } finally {
+      setVerifying([]);
     }
   };
 
@@ -95,9 +122,13 @@ export function Dashboard({ onLogout }: { onLogout: () => void }) {
     }
     load();
     loadLsStatus();
+    refreshStatuses();
+    const poll = setInterval(refreshStatuses, 15000);
+    cleanup.current = () => clearInterval(poll);
     api.checkUpdate()
       .then((v) => setUpdateInfo({ current: v.current, latest: v.current, update_available: false }))
       .catch(() => {});
+    return () => cleanup.current?.();
   }, []);
 
   const handleToggle = async (rule: Rule) => {
@@ -220,7 +251,10 @@ export function Dashboard({ onLogout }: { onLogout: () => void }) {
                   <AddRuleDialog
                     peers={onlinePeers}
                     onCreated={(created, allSucceeded) => {
-                      if (created.length) setRules((rs) => [...rs, ...created]);
+                      if (created.length) {
+                        setRules((rs) => [...rs, ...created]);
+                        verifyOpen(created.map((r) => r.id));
+                      }
                       if (allSucceeded) setAddOpen(false);
                     }}
                   />
@@ -256,6 +290,8 @@ export function Dashboard({ onLogout }: { onLogout: () => void }) {
                     onDelete={() => handleDelete(rule)}
                     isDeleteConfirm={confirmDeleteId === rule.id}
                     error={ruleErrors[rule.id]}
+                    status={statuses[rule.id]}
+                    verifying={verifying.includes(rule.id)}
                   />
                 ))}
               </div>
@@ -329,6 +365,8 @@ function RuleRow({
   onDelete,
   isDeleteConfirm,
   error,
+  status,
+  verifying,
 }: {
   rule: Rule;
   publicIp: string | null | undefined;
@@ -336,7 +374,10 @@ function RuleRow({
   onDelete: () => void;
   isDeleteConfirm: boolean;
   error?: string;
+  status?: RuleStatus;
+  verifying: boolean;
 }) {
+  const badge = badgeFor(status, rule.enabled, verifying);
   return (
     <div>
       <Card
@@ -350,6 +391,12 @@ function RuleRow({
             <span className="text-[18px] font-medium truncate">{rule.label}</span>
             <span className="text-[12px] font-bold px-2 py-1 rounded-3xl bg-secondary text-muted-foreground">
               {rule.protocol === "tcp" ? "TCP" : "UDP"}
+            </span>
+            <span
+              className={`text-[12px] font-bold px-2 py-1 rounded-3xl ${BADGE_TONE[badge.tone]}`}
+              title={badge.title}
+            >
+              {badge.text}
             </span>
           </div>
           <div className="flex flex-wrap items-center gap-2 text-[14px] text-muted-foreground mt-1">
@@ -373,9 +420,56 @@ function RuleRow({
         </Button>
       </Card>
       {error && <p className="text-[14px] text-destructive mt-2 ml-1">{error}</p>}
+      {!error && status && !status.connectable && rule.enabled && !verifying && (
+        <p className="text-[14px] text-muted-foreground mt-2 ml-1">
+          {status.firewall === "open" ? status.backend_detail : status.firewall_detail}
+        </p>
+      )}
     </div>
   );
 }
+
+export const VERIFY_INTERVAL_MS = 2000;
+export const VERIFY_ATTEMPTS = 15; // ~30s, comfortably past AWS's apply delay
+
+// Stop polling once AWS has answered for every new rule. "unconfigured" is a
+// permanent answer (no creds), not a pending one, so waiting longer is pointless.
+export function verificationSettled(ids: number[], list: RuleStatus[]): boolean {
+  const mine = list.filter((st) => ids.includes(st.id));
+  return (
+    mine.length === ids.length &&
+    mine.every((st) => st.firewall === "open" || st.firewall === "unconfigured")
+  );
+}
+
+// One badge, one message: name the half that is broken. Order matters -- the
+// firewall is checked first because a blocked port makes the backend irrelevant.
+export function badgeFor(
+  status: RuleStatus | undefined,
+  enabled: boolean,
+  verifying: boolean
+): { text: string; tone: "good" | "bad" | "warn" | "idle"; title: string } {
+  if (verifying) return { text: "Verifying…", tone: "idle", title: "Waiting for AWS to report the port open" };
+  if (!enabled) return { text: "Disabled", tone: "idle", title: "Rule is switched off" };
+  if (!status) return { text: "Checking…", tone: "idle", title: "Fetching status" };
+  if (status.connectable) return { text: "Open & connectable", tone: "good", title: status.firewall_detail };
+  if (status.firewall === "closed")
+    return { text: "Blocked in AWS", tone: "bad", title: status.firewall_detail };
+  if (status.firewall === "unconfigured")
+    return { text: "AWS unverified", tone: "warn", title: status.firewall_detail };
+  if (status.backend === "refused")
+    return { text: "Nothing listening", tone: "bad", title: status.backend_detail };
+  if (status.backend === "timeout")
+    return { text: "Destination unreachable", tone: "bad", title: status.backend_detail };
+  return { text: "Port open, backend unverified", tone: "warn", title: status.backend_detail };
+}
+
+const BADGE_TONE: Record<string, string> = {
+  good: "bg-accent text-black",
+  bad: "bg-destructive text-white",
+  warn: "bg-secondary text-foreground",
+  idle: "bg-secondary text-muted-foreground",
+};
 
 // "both" means one rule per protocol. Sequential on purpose: each create shells out
 // to iptables and writes SQLite, and a half-succeeded run must keep the rule that landed.

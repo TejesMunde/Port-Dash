@@ -2,8 +2,8 @@
 // Run: npx esbuild src/checks.tsx --bundle --platform=node --alias:@=./src --outfile=checks.cjs && node checks.cjs
 import { renderToStaticMarkup } from "react-dom/server";
 import { Dialog, DialogTrigger, DialogContent } from "./components/ui/dialog";
-import { createForProtocols } from "./components/Dashboard";
-import type { Rule, RuleInput } from "./lib/api";
+import { createForProtocols, badgeFor, verificationSettled } from "./components/Dashboard";
+import type { Rule, RuleInput, RuleStatus } from "./lib/api";
 
 const assert = (cond: boolean, msg: string) => {
   if (!cond) throw new Error("checks FAILED: " + msg);
@@ -44,6 +44,61 @@ const failOn = (bad: string) => async (r: RuleInput) => {
   if (r.protocol === bad) throw new Error(`${bad.toUpperCase()} port 25565 already mapped`);
   return fakeRule(r);
 };
+
+// --- verification badge + polling stop condition ---
+const st = (over: Partial<RuleStatus> = {}): RuleStatus => ({
+  id: 1,
+  firewall: "open",
+  firewall_detail: "open in AWS (2208-2208/tcp)",
+  backend: "reachable",
+  backend_detail: "destination accepted a connection",
+  connectable: true,
+  ...over,
+});
+
+// verifying and disabled win over any status
+assert(badgeFor(st(), true, true).text.startsWith("Verifying"), "verifying beats everything");
+assert(badgeFor(st(), false, false).text === "Disabled", "disabled rule says so");
+assert(badgeFor(undefined, true, false).text.startsWith("Checking"), "no status yet -> checking");
+
+// the happy path
+assert(badgeFor(st(), true, false).tone === "good", "connectable is good");
+
+// the 2208 bug: AWS never opened the port, even though the server is alive
+const blocked = st({ firewall: "closed", firewall_detail: "not open in the AWS firewall", connectable: false });
+assert(badgeFor(blocked, true, false).text === "Blocked in AWS", "closed firewall named");
+assert(badgeFor(blocked, true, false).tone === "bad", "closed firewall is bad");
+
+// firewall outranks backend: a blocked port makes the backend irrelevant
+const both = st({ firewall: "closed", backend: "refused", connectable: false });
+assert(badgeFor(both, true, false).text === "Blocked in AWS", "firewall reported before backend");
+
+// no AWS creds -> must warn, never claim open
+const unconf = st({ firewall: "unconfigured", firewall_detail: "LIGHTSAIL_INSTANCE not set", connectable: false });
+assert(badgeFor(unconf, true, false).tone === "warn", "unconfigured warns, not fails");
+assert(badgeFor(unconf, true, false).text === "AWS unverified", "unconfigured never says open");
+
+// the stopped-server case
+const dead = st({ backend: "refused", backend_detail: "nothing is listening", connectable: false });
+assert(badgeFor(dead, true, false).text === "Nothing listening", "stopped backend named");
+assert(badgeFor(st({ backend: "timeout", connectable: false }), true, false).tone === "bad", "timeout is bad");
+
+// udp probes are advisory only -> warn, never a red failure
+const udp = st({ backend: "unknown", backend_detail: "UDP cannot be probed", connectable: false });
+assert(badgeFor(udp, true, false).tone === "warn", "unprobeable udp must not read as broken");
+
+// polling stops on a real answer, keeps waiting while a port is still closed
+assert(!verificationSettled([1, 2], [st({ id: 1 })]), "missing id -> keep polling");
+assert(!verificationSettled([1], [st({ id: 1, firewall: "closed" })]), "closed -> keep polling");
+assert(verificationSettled([1], [st({ id: 1 })]), "open -> stop");
+assert(
+  verificationSettled([1], [st({ id: 1, firewall: "unconfigured" })]),
+  "unconfigured is a final answer, not a pending one"
+);
+assert(
+  verificationSettled([1, 2], [st({ id: 1 }), st({ id: 2, firewall: "unconfigured" })]),
+  "all ids settled -> stop"
+);
 
 const run = async () => {
   let res = await createForProtocols("tcp", base, ok);

@@ -21,8 +21,9 @@ export default function App() {
         preload="metadata"
         aria-hidden="true"
       />
-      {/* Shadow Wash 80 — the system's scrim for text sitting over photography. */}
-      <div className="fixed inset-0 -z-10 bg-black/80" aria-hidden="true" />
+      {/* Shadow Wash 50 — scrim for text sitting over the loop. Light enough that
+          the night sky reads clearly, dark enough that white text stays legible. */}
+      <div className="fixed inset-0 -z-10 bg-black/50" aria-hidden="true" />
       {authed ? (
         <Dashboard onLogout={() => setAuthed(false)} />
       ) : (

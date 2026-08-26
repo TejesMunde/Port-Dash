@@ -42,14 +42,17 @@ export function Dialog({
         ref={ref}
         className="backdrop:bg-black/80 open:flex shadow-ps-4"
         style={{
-          maxWidth: "32rem",
+          // min() keeps a 16px gutter on phones; 32rem is the desktop cap.
+          maxWidth: "min(32rem, calc(100vw - 2rem))",
           width: "100%",
           margin: "auto",
           padding: 0,
-          border: "none",
+          border: "1px solid rgba(255, 255, 255, 0.12)",
           // 24px — the hero/feature tier of the radius scale.
           borderRadius: "24px",
-          background: "hsl(var(--card))",
+          background: "rgba(18, 19, 20, 0.68)",
+          backdropFilter: "blur(20px) saturate(150%)",
+          WebkitBackdropFilter: "blur(20px) saturate(150%)",
           color: "hsl(var(--card-foreground))",
         }}
       >
@@ -74,15 +77,15 @@ export function DialogContent({ className, children }: { className?: string; chi
 }
 
 export function DialogHeader({ className, children }: { className?: string; children?: React.ReactNode }) {
-  return <div className={cn("flex flex-col space-y-2 p-8 pb-0", className)}>{children}</div>;
+  return <div className={cn("flex flex-col space-y-2 p-6 sm:p-8 sm:pb-0 pb-0", className)}>{children}</div>;
 }
 
 export function DialogFooter({ className, children }: { className?: string; children?: React.ReactNode }) {
-  return <div className={cn("flex justify-end gap-3 p-8 pt-4", className)}>{children}</div>;
+  return <div className={cn("flex justify-end gap-3 p-6 sm:p-8 pt-4", className)}>{children}</div>;
 }
 
 export function DialogTitle({ className, children }: { className?: string; children?: React.ReactNode }) {
-  return <h2 className={cn("display text-[28px] tracking-[0.1px]", className)}>{children}</h2>;
+  return <h2 className={cn("display text-[22px] sm:text-[28px] tracking-[0.1px]", className)}>{children}</h2>;
 }
 
 function cn(...classes: (string | undefined | false | null)[]) {

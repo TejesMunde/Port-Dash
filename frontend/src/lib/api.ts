@@ -86,6 +86,16 @@ export type UpdateInfo = {
   update_available: boolean;
 };
 
+export type RuleStatus = {
+  id: number;
+  /** "unconfigured" = we could not ask AWS at all, so nothing is claimed. */
+  firewall: "open" | "closed" | "unconfigured";
+  firewall_detail: string;
+  backend: "reachable" | "refused" | "timeout" | "unknown";
+  backend_detail: string;
+  connectable: boolean;
+};
+
 export type LightsailStatus = {
   configured: boolean;
   reason: string;
@@ -102,5 +112,6 @@ export const api = {
   networkInfo: () => request<NetworkInfo>("/api/network-info"),
   checkUpdate: () => request<UpdateInfo>("/api/check-update"),
   triggerUpdate: () => request<{ ok: boolean; message: string }>("/api/update", { method: "POST" }),
+  rulesStatus: () => request<RuleStatus[]>("/api/rules/status"),
   lightsailStatus: () => request<LightsailStatus>("/api/lightsail-status"),
 };

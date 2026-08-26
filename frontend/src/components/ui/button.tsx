@@ -17,19 +17,19 @@ const SIGNATURE =
 const variantClasses: Record<Variant, string> = {
   default: "bg-primary text-primary-foreground " + SIGNATURE,
   destructive: "bg-destructive text-destructive-foreground " + SIGNATURE,
-  // Secondary — white fill, blue label, genuine black border.
+  // Secondary — frosted glass pill: translucent white over whatever it sits on.
   outline: "bg-white text-primary !border-black " + SIGNATURE,
-  secondary: "bg-secondary text-secondary-foreground " + SIGNATURE,
+  secondary: "bg-white/10 text-secondary-foreground " + SIGNATURE,
   // Transparent ghost — nav-optimized, quiet at rest.
   ghost: "bg-transparent text-foreground !border-[#1f1f1f] " + SIGNATURE,
 };
 
 // Icon Circle lightens on hover instead of taking the scale/ring treatment, so
 // controls never jump. Which surface it sits on is chosen by the variant:
-// `ghost` on the black masthead, `secondary` on white panels.
+// `ghost` on the black masthead, `secondary` on glass panels.
 const iconClasses: Record<Variant, string> = {
   ghost: "bg-white/10 text-white hover:bg-white/25",
-  secondary: "bg-secondary text-foreground hover:bg-muted",
+  secondary: "bg-white/10 text-foreground hover:bg-white/20",
   default: "bg-primary text-primary-foreground hover:bg-accent",
   destructive: "bg-destructive text-destructive-foreground hover:bg-accent",
   outline: "bg-white text-primary border-2 border-black hover:bg-secondary",

@@ -19,8 +19,8 @@ export function Switch({
         "relative inline-flex h-6 w-11 shrink-0 cursor-pointer items-center rounded-full",
         "border-2 border-transparent transition-colors duration-180 ease-out",
         "focus-visible:outline-none focus-visible:shadow-[0_0_0_2px_hsl(var(--primary))]",
-        // Blue for on, Body Gray for off — the system has no green success state.
-        checked ? "bg-primary" : "bg-[#6b6b6b]",
+        // Blue for on, frosted white for off — the system has no green success state.
+        checked ? "bg-primary" : "bg-white/20",
         className
       )}
     >
