@@ -142,5 +142,5 @@ export const api = {
   openFirewall: (id: number) =>
     request<RuleStatus>(`/api/rules/${id}/open-firewall`, { method: "POST" }),
   saveCredentials: (creds: { instance: string; region: string; access_key_id: string; secret_access_key: string }) =>
-    request<LightsailStatus>('/api/aws-config', { method: 'POST', body: JSON.stringify(creds) }),
+    request<LightsailStatus>("/api/aws-config", { method: "POST", body: JSON.stringify(creds) }),
 };

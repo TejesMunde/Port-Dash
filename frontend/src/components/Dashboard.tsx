@@ -147,7 +147,6 @@ export function Dashboard({ onLogout }: { onLogout: () => void }) {
       const result = await api.saveCredentials({ instance: credInstance, region: credRegion, access_key_id: credAccessKey, secret_access_key: credSecretKey });
       setLsStatus(result);
       setCredOpen(false);
-      loadLsStatus();
     } catch (e: any) { setCredErr(e.message); }
     finally { setCredBusy(false); }
   };
