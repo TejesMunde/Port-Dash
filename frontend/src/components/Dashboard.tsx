@@ -157,7 +157,7 @@ export function Dashboard({ onLogout }: { onLogout: () => void }) {
   const aws = awsBadge(lsStatus);
 
   return (
-    <div className="min-h-screen animate-page-in">
+    <div className="min-h-screen flex flex-col animate-page-in">
       <header className="border-b border-border">
         <div className="max-w-4xl mx-auto px-6 py-3 flex items-center justify-between">
           <div>
@@ -175,9 +175,9 @@ export function Dashboard({ onLogout }: { onLogout: () => void }) {
               <span className={`w-1.5 h-1.5 rounded-full inline-block ${aws.tone === "good" ? "bg-success" : aws.tone === "bad" ? "bg-destructive" : "bg-muted-foreground"}`} />
               AWS
             </button>
-            <Button variant="ghost" size="icon" onClick={load} title="Refresh" className="text-muted-foreground hover:text-foreground">\u21BB</Button>
+            <Button variant="ghost" size="icon" onClick={load} title="Refresh" className="text-muted-foreground hover:text-foreground">↻</Button>
 
-            <Button variant="ghost" size="icon" onClick={logout} title="Sign out" className="text-muted-foreground hover:text-foreground">\u2192</Button>
+            <Button variant="ghost" size="icon" onClick={logout} title="Sign out" className="text-muted-foreground hover:text-foreground">→</Button>
           </div>
         </div>
       </header>
@@ -188,9 +188,9 @@ export function Dashboard({ onLogout }: { onLogout: () => void }) {
           <Card className="p-4 flex items-center justify-between border-primary/30">
             <div className="flex items-center gap-3">
               <span className="text-sm font-medium">Update available</span>
-              <span className="text-xs text-muted-foreground font-mono">v{updateInfo.current} \u2192 v{updateInfo.latest}</span>
+              <span className="text-xs text-muted-foreground font-mono">v{updateInfo.current} → v{updateInfo.latest}</span>
             </div>
-            <Button size="sm" onClick={handleUpdate} disabled={updating}>{updating ? "Updating\u2026" : "Update"}</Button>
+            <Button size="sm" onClick={handleUpdate} disabled={updating}>{updating ? "Updating…" : "Update"}</Button>
           </Card>
         )}
         {netInfo && <NetworkInfoCard info={netInfo} />}
@@ -225,7 +225,7 @@ export function Dashboard({ onLogout }: { onLogout: () => void }) {
         {loading && cachedRules.current.length === 0 ? (
           <Card className="p-8 flex flex-col items-center gap-3">
             <div className="w-5 h-5 rounded-full border-2 border-muted border-t-primary animate-spin" />
-            <span className="text-xs text-muted-foreground">Loading\u2026</span>
+            <span className="text-xs text-muted-foreground">Loading…</span>
           </Card>
         ) : rules.length === 0 ? (
           <Card className="p-5 text-center">
@@ -253,7 +253,7 @@ export function Dashboard({ onLogout }: { onLogout: () => void }) {
         )}
       </main>
 
-      <footer className="bg-primary text-primary-foreground">
+      <footer className="mt-auto bg-primary text-primary-foreground">
         <div className="max-w-4xl mx-auto px-6 py-2 flex items-center justify-between text-xs font-mono">
           <span>Port Forward Dashboard</span>
           <span className="opacity-70">v{updateInfo?.current || "?"}</span>
@@ -284,7 +284,7 @@ export function Dashboard({ onLogout }: { onLogout: () => void }) {
             </div>
             {credErr && <p className="text-xs text-destructive">{credErr}</p>}
             <DialogFooter className="pt-2">
-              <Button type="submit" disabled={credBusy}>{credBusy ? "Saving\u2026" : "Save"}</Button>
+              <Button type="submit" disabled={credBusy}>{credBusy ? "Saving…" : "Save"}</Button>
             </DialogFooter>
           </form>
         </DialogContent>
@@ -317,9 +317,9 @@ export type Badge = { text: string; tone: "good" | "bad" | "warn" | "idle"; acti
 
 export function badgeFor(status: RuleStatus | undefined, enabled: boolean, verifying: boolean): Badge {
   const idle: Badge = { text: "", tone: "idle", actionable: false, title: "" };
-  if (verifying) return { ...idle, text: "Verifying\u2026", tone: "warn" };
+  if (verifying) return { ...idle, text: "Verifying…", tone: "warn" };
   if (!enabled) return { ...idle, text: "Disabled", tone: "idle" };
-  if (!status) return { ...idle, text: "Checking\u2026", tone: "warn" };
+  if (!status) return { ...idle, text: "Checking…", tone: "warn" };
   // Firewall is checked first — a blocked port makes the backend irrelevant.
   if (status.firewall === "closed") return { text: "Blocked in AWS", tone: "bad", actionable: true, title: status.firewall_detail };
   if (status.firewall === "unconfigured") return { text: "AWS unverified", tone: "warn", actionable: false, title: status.firewall_detail };
@@ -362,11 +362,11 @@ function NetworkInfoCard({ info }: { info: NetworkInfo }) {
         </div>
         <div>
           <span className="text-muted-foreground uppercase tracking-wider text-[10px]">Public IP</span>
-          <div className="mt-1 truncate font-mono text-[11px]">{info.self_public_ip || "\u2014"}</div>
+          <div className="mt-1 truncate font-mono text-[11px]">{info.self_public_ip || "—"}</div>
         </div>
         <div>
           <span className="text-muted-foreground uppercase tracking-wider text-[10px]">Tailscale IP</span>
-          <div className="mt-1 truncate font-mono text-[11px]">{info.self_tailscale_ip || "\u2014"}</div>
+          <div className="mt-1 truncate font-mono text-[11px]">{info.self_tailscale_ip || "—"}</div>
         </div>
       </div>
       {info.peers.length > 0 && (
@@ -426,13 +426,13 @@ function RuleRow({ rule, index, publicIp, status, verifying, onToggle, onDelete,
           </div>
           <div className="flex items-center gap-1.5 text-[11px] text-muted-foreground mt-1 font-mono">
             <span>{publicIp || "<this-host>"}:{rule.public_port}</span>
-            <span className="text-primary transition-opacity duration-fast">\u2192</span>
+            <span className="text-primary transition-opacity duration-fast">→</span>
             <span>{rule.dest_hostname}:{rule.dest_port}</span>
             <span className="text-[9px] opacity-60">({rule.dest_ip})</span>
           </div>
         </div>
         <Button variant={isDeleteConfirm ? "destructive" : "ghost"} size="icon" onClick={onDelete}>
-          {isDeleteConfirm ? "\u2713" : "\u2715"}
+          {isDeleteConfirm ? "✓" : "✕"}
         </Button>
       </Card>
       {error && <p className="text-[10px] text-destructive mt-1 ml-1 font-medium">{error}</p>}
@@ -496,7 +496,7 @@ function AddRuleDialog({ peers, onCreated }: { peers: Peer[]; onCreated: (create
         </div>
         {err && <p className="text-xs text-destructive">{err}</p>}
         <DialogFooter className="pt-2">
-          <Button type="submit" disabled={busy}>{busy ? "Creating\u2026" : "Create"}</Button>
+          <Button type="submit" disabled={busy}>{busy ? "Creating…" : "Create"}</Button>
         </DialogFooter>
       </form>
     </DialogContent>

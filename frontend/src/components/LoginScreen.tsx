@@ -53,7 +53,7 @@ export function LoginScreen({ onSuccess }: { onSuccess: () => void }) {
           </div>
           {err && <p className="text-xs text-destructive">{err}</p>}
           <Button type="submit" disabled={busy} className="w-full">
-            {busy ? "Signing in\u2026" : "Sign in"}
+            {busy ? "Signing in…" : "Sign in"}
           </Button>
         </form>
       </Card>
