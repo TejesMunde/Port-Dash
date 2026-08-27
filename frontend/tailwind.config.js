@@ -18,14 +18,12 @@ export default {
         success: { DEFAULT: "hsl(var(--success))" },
       },
       fontFamily: {
-        display: ['"Source Serif 4"', 'Georgia', 'serif'],
-        sans: ['system-ui', '-apple-system', 'BlinkMacSystemFont', '"Segoe UI"', 'Roboto', 'sans-serif'],
-        mono: ['"JetBrains Mono"', '"Fira Code"', 'monospace'],
+        sans: ["Inter", "-apple-system", "BlinkMacSystemFont", "Segoe UI", "Roboto", "Arial", "sans-serif"],
+        mono: ["SF Mono", "Fira Code", "Fira Mono", "Roboto Mono", "monospace"],
       },
-      borderRadius: { lg: "0.75rem", md: "0.5rem", sm: "0.375rem" },
+      borderRadius: { lg: "0.75rem", md: "0.25rem", sm: "0.25rem" },
       transitionTimingFunction: {
-        "anthropic-out": "var(--ease-out)",
-        "anthropic-in-out": "var(--ease-in-out)",
+        "tesla": "cubic-bezier(0.5, 0, 0, 0.75)",
       },
       transitionDuration: {
         "fast": "var(--duration-fast)",

@@ -161,13 +161,13 @@ export function Dashboard({ onLogout }: { onLogout: () => void }) {
       <header className="border-b border-border">
         <div className="max-w-4xl mx-auto px-6 py-3 flex items-center justify-between">
           <div>
-            <h1 className="text-lg font-display font-semibold tracking-tight">Port Forwards</h1>
+            <h1 className="text-lg font-semibold tracking-tight">Port Forwards</h1>
             <p className="text-xs text-muted-foreground">iptables DNAT rules</p>
           </div>
           <div className="flex items-center gap-2">
             <button
               onClick={() => aws.actionable && setCredOpen(true)}
-              className={`text-[10px] px-2 py-0.5 rounded-full flex items-center gap-1 transition-colors duration-fast ease-anthropic-out ${
+              className={`text-[10px] px-2 py-0.5 rounded-full flex items-center gap-1 transition-colors duration-normal ease-tesla ${
                 aws.tone === "good" ? "bg-success/15 text-success" : aws.tone === "bad" ? "bg-destructive/15 text-destructive" : "bg-secondary text-muted-foreground"
               } ${aws.actionable ? "cursor-pointer hover:opacity-80" : ""}`}
               title={aws.title}
@@ -197,7 +197,7 @@ export function Dashboard({ onLogout }: { onLogout: () => void }) {
 
         <div className="flex items-center justify-between">
           <div>
-            <h2 className="text-sm font-display font-semibold tracking-tight">Active forwards</h2>
+            <h2 className="text-sm font-semibold tracking-tight">Active forwards</h2>
             <p className="text-xs text-muted-foreground">{rules.length} rule{rules.length !== 1 ? "s" : ""}</p>
           </div>
           <Dialog open={addOpen} onOpenChange={setAddOpen}>
@@ -253,10 +253,10 @@ export function Dashboard({ onLogout }: { onLogout: () => void }) {
         )}
       </main>
 
-      <footer className="mt-auto bg-primary text-primary-foreground">
-        <div className="max-w-4xl mx-auto px-6 py-2 flex items-center justify-between text-xs font-mono">
+      <footer className="mt-auto border-t border-border">
+        <div className="max-w-4xl mx-auto px-6 py-3 flex items-center justify-between text-xs text-muted-foreground">
           <span>Port Forward Dashboard</span>
-          <span className="opacity-70">v{updateInfo?.current || "?"}</span>
+          <span className="font-mono">v{updateInfo?.current || "?"}</span>
         </div>
       </footer>
 
@@ -376,8 +376,8 @@ function NetworkInfoCard({ info }: { info: NetworkInfo }) {
           </div>
           <div className="flex flex-wrap gap-1.5">
             {info.peers.map((p) => (
-              <div key={p.hostname} className="inline-flex items-center gap-1.5 px-2 py-1 rounded-md bg-secondary text-secondary-foreground text-[11px] transition-colors duration-fast ease-anthropic-out hover:bg-secondary/80">
-                <span className={`w-2 h-2 rounded-full inline-block transition-colors duration-slow ${p.online ? "bg-success" : "bg-muted-foreground"}`} />
+              <div key={p.hostname} className="inline-flex items-center gap-1.5 px-2 py-1 rounded-md bg-secondary text-secondary-foreground text-[11px] transition-colors duration-normal ease-tesla hover:bg-secondary/80">
+                <span className={`w-2 h-2 rounded-full inline-block transition-colors duration-normal ${p.online ? "bg-success" : "bg-muted-foreground"}`} />
                 <span className="font-medium">{p.hostname}</span>
                 <span className="text-muted-foreground font-mono text-[10px]">{p.ip}</span>
                 {p.tags.map((t) => (<span key={t} className="px-1.5 rounded-full bg-muted text-muted-foreground text-[9px]">{t}</span>))}
@@ -417,10 +417,10 @@ function RuleRow({ rule, index, publicIp, status, verifying, onToggle, onDelete,
         <div className="flex-1 min-w-0">
           <div className="flex items-center gap-2">
             <span className="font-medium truncate text-sm">{rule.label}</span>
-            <span className="text-[9px] px-1.5 py-0.5 rounded-full bg-secondary text-secondary-foreground uppercase font-mono tracking-wider transition-colors duration-fast ease-anthropic-out">{rule.protocol}</span>
+            <span className="text-[9px] px-1.5 py-0.5 rounded-full bg-secondary text-secondary-foreground uppercase font-mono tracking-wider transition-colors duration-normal ease-tesla">{rule.protocol}</span>
             {badge.text && (
               <button onClick={badge.actionable ? onOpenFirewall : undefined}
-                className={`text-[9px] px-1.5 py-0.5 rounded-full font-medium transition-colors duration-fast ease-anthropic-out ${toneClasses[badge.tone]} ${badge.actionable ? "cursor-pointer hover:opacity-80" : ""}`}
+                className={`text-[9px] px-1.5 py-0.5 rounded-full font-medium transition-colors duration-normal ease-tesla ${toneClasses[badge.tone]} ${badge.actionable ? "cursor-pointer hover:opacity-80" : ""}`}
                 title={badge.title}>{badge.text}</button>
             )}
           </div>
@@ -471,7 +471,7 @@ function AddRuleDialog({ peers, onCreated }: { peers: Peer[]; onCreated: (create
         <div>
           <label className="text-xs text-muted-foreground mb-1.5 block">Destination machine</label>
           <select name="dest_hostname" value={destHostname} onChange={(e: any) => setDestHostname(e.target.value)}
-            className="flex h-10 w-full rounded-md border border-input bg-background px-3.5 py-2 text-sm focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2 focus-visible:ring-offset-background transition-colors duration-fast ease-anthropic-out" required>
+            className="flex h-10 w-full rounded-md border border-input bg-background px-3.5 py-2 text-sm focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2 focus-visible:ring-offset-background transition-colors duration-normal ease-tesla" required>
             {peers.map((p) => (<option key={p.hostname} value={p.hostname}>{p.hostname} ({p.ip})</option>))}
           </select>
         </div>
@@ -488,7 +488,7 @@ function AddRuleDialog({ peers, onCreated }: { peers: Peer[]; onCreated: (create
         <div>
           <label className="text-xs text-muted-foreground mb-1.5 block">Protocol</label>
           <select name="protocol" value={protocol} onChange={(e) => setProtocol(e.target.value as "tcp" | "udp" | "both")}
-            className="flex h-10 w-full rounded-md border border-input bg-background px-3.5 py-2 text-sm focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2 focus-visible:ring-offset-background transition-colors duration-fast ease-anthropic-out">
+            className="flex h-10 w-full rounded-md border border-input bg-background px-3.5 py-2 text-sm focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2 focus-visible:ring-offset-background transition-colors duration-normal ease-tesla">
             <option value="tcp">TCP</option>
             <option value="udp">UDP</option>
             <option value="both">TCP + UDP</option>

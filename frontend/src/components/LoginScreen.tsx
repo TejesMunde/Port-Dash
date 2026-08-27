@@ -28,8 +28,7 @@ export function LoginScreen({ onSuccess }: { onSuccess: () => void }) {
     <div className="min-h-screen grid place-items-center p-4 animate-page-in">
       <Card className="w-full max-w-sm p-8">
         <div className="text-center mb-6">
-          <div className="mx-auto mb-3 text-3xl font-display font-bold text-primary tracking-tight">PF</div>
-          <h1 className="text-xl font-display font-semibold">Port Forward</h1>
+          <h1 className="text-2xl font-semibold tracking-tight">Port Forward</h1>
           <p className="text-sm text-muted-foreground mt-1">Sign in to manage iptables rules</p>
         </div>
         <form onSubmit={submit} className="space-y-4">

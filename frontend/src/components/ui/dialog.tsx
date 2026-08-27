@@ -27,8 +27,6 @@ export function Dialog({
     return () => el.removeEventListener("close", close);
   }, [onOpenChange]);
 
-  // Split children: trigger renders outside <dialog> so it survives when closed.
-  // Content renders inside <dialog> and is gated on `open`.
   const triggerChild = React.Children.toArray(children).find(
     (c) => React.isValidElement(c) && c.type === DialogTrigger
   );
@@ -42,7 +40,7 @@ export function Dialog({
       <dialog
         ref={ref}
         className={cn(
-          "backdrop:bg-black/70 backdrop:backdrop-blur-sm",
+          "backdrop:bg-black/60",
           "open:animate-dialog-in"
         )}
         style={{
@@ -51,10 +49,9 @@ export function Dialog({
           margin: "auto",
           padding: 0,
           border: "1px solid hsl(var(--border))",
-          borderRadius: "0.75rem",
+          borderRadius: "0.5rem",
           background: "hsl(var(--card))",
           color: "hsl(var(--card-foreground))",
-          boxShadow: "0 16px 48px rgba(0,0,0,0.4)",
         }}
       >
         {open && otherChildren}
@@ -80,5 +77,5 @@ export function DialogFooter({ className, children }: { className?: string; chil
 }
 
 export function DialogTitle({ className, children }: { className?: string; children?: React.ReactNode }) {
-  return <h2 className={cn("text-lg font-semibold font-display", className)}>{children}</h2>;
+  return <h2 className={cn("text-lg font-semibold", className)}>{children}</h2>;
 }

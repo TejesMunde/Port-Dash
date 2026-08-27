@@ -12,10 +12,10 @@ const variantClasses: Record<Variant, string> = {
 };
 
 const sizeClasses: Record<Size, string> = {
-  default: "h-10 px-5 text-sm",
-  sm: "h-9 px-3.5 text-xs",
-  lg: "h-11 px-7 text-sm",
-  icon: "h-10 w-10",
+  default: "h-10 px-6 text-sm font-medium min-w-[200px]",
+  sm: "h-9 px-4 text-xs font-medium min-w-[160px]",
+  lg: "h-11 px-8 text-sm font-medium min-w-[200px]",
+  icon: "h-10 w-10 min-w-0",
 };
 
 export function Button({
@@ -36,8 +36,8 @@ export function Button({
   return (
     <button
       className={cn(
-        "inline-flex items-center justify-center gap-1.5 rounded-md font-medium",
-        "transition-colors duration-normal ease-anthropic-out",
+        "inline-flex items-center justify-center gap-2 font-medium",
+        "rounded transition-all duration-normal ease-tesla",
         "focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2 focus-visible:ring-offset-background",
         "disabled:pointer-events-none disabled:opacity-40",
         variantClasses[variant],

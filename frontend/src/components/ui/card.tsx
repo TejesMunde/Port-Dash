@@ -14,9 +14,9 @@ export function Card({
   return (
     <div
       className={cn(
-        "rounded-lg border border-border bg-card text-card-foreground",
-        "transition-colors duration-normal ease-anthropic-out",
-        hoverable && "hover:border-border/60 hover:bg-card/80",
+        "rounded-lg bg-card text-card-foreground",
+        "transition-colors duration-normal ease-tesla",
+        hoverable && "hover:bg-secondary",
         className
       )}
       {...props}
