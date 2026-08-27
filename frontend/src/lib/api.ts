@@ -13,9 +13,12 @@ export function clearToken() {
 async function request<T>(path: string, opts: RequestInit = {}): Promise<T> {
   const token = getToken();
   const headers: Record<string, string> = {
-    "Content-Type": "application/json",
     ...(opts.headers as Record<string, string>),
   };
+  // Only set JSON content-type for non-FormData bodies
+  if (!(opts.body instanceof FormData)) {
+    headers["Content-Type"] = "application/json";
+  }
   if (token) headers["Authorization"] = `Bearer ${token}`;
 
   const res = await fetch(path, { ...opts, headers });
@@ -25,8 +28,13 @@ async function request<T>(path: string, opts: RequestInit = {}): Promise<T> {
     throw new Error("Unauthorized");
   }
   if (!res.ok) {
-    const body = await res.json().catch(() => ({}));
-    throw new Error(body.detail || `${res.status} ${res.statusText}`);
+    let detail = `${res.status} ${res.statusText}`;
+    const contentType = res.headers.get("content-type") || "";
+    if (contentType.includes("application/json")) {
+      const body = await res.json().catch(() => null);
+      if (body?.detail) detail = body.detail;
+    }
+    throw new Error(detail);
   }
   if (res.status === 204) return undefined as T;
   return res.json();
@@ -73,10 +81,18 @@ export async function login(username: string, password: string) {
   const body = new URLSearchParams({ username, password });
   const res = await fetch("/api/login", { method: "POST", body });
   if (!res.ok) {
-    const data = await res.json().catch(() => ({}));
-    throw new Error(data.detail || "Login failed");
+    let detail = "Login failed";
+    const contentType = res.headers.get("content-type") || "";
+    if (contentType.includes("application/json")) {
+      const data = await res.json().catch(() => null);
+      if (data?.detail) detail = data.detail;
+    }
+    throw new Error(detail);
   }
   const data = await res.json();
+  if (!data?.access_token) {
+    throw new Error("Login failed: server did not return a token");
+  }
   setToken(data.access_token);
 }
 
@@ -86,30 +102,21 @@ export type UpdateInfo = {
   update_available: boolean;
 };
 
-export type RuleStatus = {
-  id: number;
-  /** "unconfigured" = we could not ask AWS at all, so nothing is claimed. */
-  firewall: "open" | "closed" | "unconfigured";
-  firewall_detail: string;
-  backend: "reachable" | "refused" | "timeout" | "unknown";
-  backend_detail: string;
-  connectable: boolean;
-};
-
 export type LightsailStatus = {
   configured: boolean;
   reason: string;
-  /** True when the fix is credentials, so the UI can offer the form. */
   needs_credentials: boolean;
   instance: string;
   region: string;
 };
 
-export type AwsCredentials = {
-  access_key_id: string;
-  secret_access_key: string;
-  instance: string;
-  region: string;
+export type RuleStatus = {
+  id: number;
+  firewall: string;         // "open" | "closed" | "unconfigured"
+  firewall_detail: string;
+  backend: string;          // "reachable" | "refused" | "timeout" | "unknown"
+  backend_detail: string;
+  connectable: boolean;
 };
 
 export const api = {
@@ -123,10 +130,10 @@ export const api = {
   networkInfo: () => request<NetworkInfo>("/api/network-info"),
   checkUpdate: () => request<UpdateInfo>("/api/check-update"),
   triggerUpdate: () => request<{ ok: boolean; message: string }>("/api/update", { method: "POST" }),
+  lightsailStatus: () => request<LightsailStatus>("/api/lightsail-status"),
   rulesStatus: () => request<RuleStatus[]>("/api/rules/status"),
   openFirewall: (id: number) =>
     request<RuleStatus>(`/api/rules/${id}/open-firewall`, { method: "POST" }),
-  lightsailStatus: () => request<LightsailStatus>("/api/lightsail-status"),
-  setAwsConfig: (c: AwsCredentials) =>
-    request<LightsailStatus>("/api/aws-config", { method: "POST", body: JSON.stringify(c) }),
+  saveCredentials: (creds: { instance: string; region: string; access_key: string; secret_key: string }) =>
+    request<{ ok: boolean }>('/api/lightsail-credentials', { method: 'POST', body: JSON.stringify(creds) }),
 };

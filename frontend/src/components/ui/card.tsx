@@ -1,14 +1,22 @@
 import { cn } from "../../lib/utils";
 
-// Content panel, rendered as frosted glass: Shadow Black at 60% over the
-// background loop, blurred and saturated behind, with a white hairline edge
-// that catches the light. Radius 12px is the standard content tier.
-export function Card({ className, children, ...props }: { className?: string; children?: React.ReactNode; [key: string]: any }) {
+export function Card({
+  className,
+  hoverable = false,
+  children,
+  ...props
+}: {
+  className?: string;
+  hoverable?: boolean;
+  children?: React.ReactNode;
+  [key: string]: any;
+}) {
   return (
     <div
       className={cn(
-        "bg-card/60 text-card-foreground rounded-lg border border-white/10 shadow-ps-1",
-        "backdrop-blur-xl backdrop-saturate-150",
+        "rounded-lg border border-border bg-card text-card-foreground",
+        "transition-colors duration-normal ease-anthropic-out",
+        hoverable && "hover:border-border/60 hover:bg-card/80",
         className
       )}
       {...props}

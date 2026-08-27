@@ -25,34 +25,38 @@ export function LoginScreen({ onSuccess }: { onSuccess: () => void }) {
   };
 
   return (
-    // Transparent so the background loop carries through behind the sign-in card.
-    <div className="min-h-screen grid place-items-center p-4">
-      <div className="w-full max-w-md px-2">
-        <div className="text-center mb-8 sm:mb-10">
-          <h1 className="display text-[34px] leading-tight sm:text-[44px] text-white tracking-[0.1px]">Port Forward</h1>
-          <p className="text-[16px] sm:text-[18px] text-white/60 mt-3">Sign in to manage iptables rules</p>
+    <div className="min-h-screen grid place-items-center p-4 animate-page-in">
+      <Card className="w-full max-w-sm p-8">
+        <div className="text-center mb-6">
+          <div className="mx-auto mb-3 text-3xl font-display font-bold text-primary tracking-tight">PF</div>
+          <h1 className="text-xl font-display font-semibold">Port Forward</h1>
+          <p className="text-sm text-muted-foreground mt-1">Sign in to manage iptables rules</p>
         </div>
-        <Card className="p-6 sm:p-8 rounded-4xl shadow-ps-4">
-          <form onSubmit={submit} className="space-y-5">
+        <form onSubmit={submit} className="space-y-4">
+          <div>
+            <label className="text-xs text-muted-foreground mb-1.5 block">Username</label>
             <Input
               autoFocus
-              placeholder="Username"
+              placeholder="admin"
               value={username}
               onChange={(e: any) => setUsername(e.target.value)}
             />
+          </div>
+          <div>
+            <label className="text-xs text-muted-foreground mb-1.5 block">Password</label>
             <Input
               type="password"
               placeholder="Password"
               value={password}
               onChange={(e: any) => setPassword(e.target.value)}
             />
-            {err && <p className="text-[14px] text-destructive">{err}</p>}
-            <Button type="submit" disabled={busy} className="w-full">
-              {busy ? "Signing in…" : "Sign in"}
-            </Button>
-          </form>
-        </Card>
-      </div>
+          </div>
+          {err && <p className="text-xs text-destructive">{err}</p>}
+          <Button type="submit" disabled={busy} className="w-full">
+            {busy ? "Signing in\u2026" : "Sign in"}
+          </Button>
+        </form>
+      </Card>
     </div>
   );
 }
