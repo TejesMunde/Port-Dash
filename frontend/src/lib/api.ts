@@ -110,6 +110,13 @@ export type LightsailStatus = {
   region: string;
 };
 
+export type AwsCredentials = {
+  access_key_id: string;
+  secret_access_key: string;
+  instance: string;
+  region: string;
+};
+
 export type RuleStatus = {
   id: number;
   firewall: "open" | "closed" | "unconfigured";

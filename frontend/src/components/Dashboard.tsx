@@ -269,19 +269,19 @@ export function Dashboard({ onLogout }: { onLogout: () => void }) {
           <form onSubmit={handleCredSubmit} className="space-y-4 p-6">
             <div>
               <label className="text-xs text-muted-foreground mb-1.5 block">Instance name</label>
-              <Input placeholder="my-instance" value={credInstance} onChange={(e: any) => setCredInstance(e.target.value)} required />
+              <Input name="instance" placeholder="my-instance" value={credInstance} onChange={(e: any) => setCredInstance(e.target.value)} required />
             </div>
             <div>
               <label className="text-xs text-muted-foreground mb-1.5 block">Region</label>
-              <Input placeholder="ap-south-1" value={credRegion} onChange={(e: any) => setCredRegion(e.target.value)} required />
+              <Input name="region" placeholder="ap-south-1" value={credRegion} onChange={(e: any) => setCredRegion(e.target.value)} required />
             </div>
             <div>
               <label className="text-xs text-muted-foreground mb-1.5 block">Access key ID</label>
-              <Input placeholder="AKIA..." value={credAccessKey} onChange={(e: any) => setCredAccessKey(e.target.value)} required />
+              <Input name="access_key_id" placeholder="AKIA..." value={credAccessKey} onChange={(e: any) => setCredAccessKey(e.target.value)} required />
             </div>
             <div>
               <label className="text-xs text-muted-foreground mb-1.5 block">Secret access key</label>
-              <Input type="password" placeholder="Secret" value={credSecretKey} onChange={(e: any) => setCredSecretKey(e.target.value)} required />
+              <Input type="password" name="secret_access_key" placeholder="Secret" value={credSecretKey} onChange={(e: any) => setCredSecretKey(e.target.value)} required />
             </div>
             {credErr && <p className="text-xs text-destructive">{credErr}</p>}
             <DialogFooter className="pt-2">
@@ -403,8 +403,16 @@ function RuleRow({ rule, index, publicIp, status, verifying, onToggle, onDelete,
   onToggle: () => void; onDelete: () => void; onOpenFirewall: () => void; isDeleteConfirm: boolean; error?: string;
 }) {
   const badge = badgeFor(status, rule.enabled, verifying);
+  const animatedRef = useRef(false);
+  const [shouldAnimate, setShouldAnimate] = useState(false);
+  useEffect(() => {
+    if (!animatedRef.current) {
+      animatedRef.current = true;
+      setShouldAnimate(true);
+    }
+  }, []);
   return (
-    <div className="animate-row-in" style={{ animationDelay: `${index * 40}ms` }}>
+    <div className={shouldAnimate ? "animate-row-in" : ""} style={shouldAnimate ? { animationDelay: `${index * 40}ms` } : undefined}>
       <Card hoverable className={`p-3 flex items-center gap-3 ${isDeleteConfirm ? "border-destructive/40" : ""}`}>
         <Switch checked={rule.enabled} onCheckedChange={onToggle} />
         <div className="flex-1 min-w-0">
@@ -459,11 +467,11 @@ function AddRuleDialog({ peers, onCreated }: { peers: Peer[]; onCreated: (create
       <form onSubmit={submit} className="space-y-4 p-6">
         <div>
           <label className="text-xs text-muted-foreground mb-1.5 block">Label</label>
-          <Input placeholder="Minecraft server" value={label} onChange={(e: any) => setLabel(e.target.value)} required autoFocus />
+          <Input name="label" placeholder="Minecraft server" value={label} onChange={(e: any) => setLabel(e.target.value)} required autoFocus />
         </div>
         <div>
           <label className="text-xs text-muted-foreground mb-1.5 block">Destination machine</label>
-          <select value={destHostname} onChange={(e: any) => setDestHostname(e.target.value)}
+          <select name="dest_hostname" value={destHostname} onChange={(e: any) => setDestHostname(e.target.value)}
             className="flex h-10 w-full rounded-md border border-input bg-background px-3.5 py-2 text-sm focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2 focus-visible:ring-offset-background transition-colors duration-fast ease-anthropic-out" required>
             {peers.map((p) => (<option key={p.hostname} value={p.hostname}>{p.hostname} ({p.ip})</option>))}
           </select>
@@ -471,16 +479,16 @@ function AddRuleDialog({ peers, onCreated }: { peers: Peer[]; onCreated: (create
         <div className="grid grid-cols-2 gap-3">
           <div>
             <label className="text-xs text-muted-foreground mb-1.5 block">Public port</label>
-            <Input type="number" placeholder="25565" value={publicPort} onChange={(e: any) => setPublicPort(e.target.value)} required min={1} max={65535} />
+            <Input type="number" name="public_port" placeholder="25565" value={publicPort} onChange={(e: any) => setPublicPort(e.target.value)} required min={1} max={65535} />
           </div>
           <div>
             <label className="text-xs text-muted-foreground mb-1.5 block">Internal port</label>
-            <Input type="number" placeholder="9015" value={destPort} onChange={(e: any) => setDestPort(e.target.value)} required min={1} max={65535} />
+            <Input type="number" name="dest_port" placeholder="9015" value={destPort} onChange={(e: any) => setDestPort(e.target.value)} required min={1} max={65535} />
           </div>
         </div>
         <div>
           <label className="text-xs text-muted-foreground mb-1.5 block">Protocol</label>
-          <select value={protocol} onChange={(e) => setProtocol(e.target.value as "tcp" | "udp" | "both")}
+          <select name="protocol" value={protocol} onChange={(e) => setProtocol(e.target.value as "tcp" | "udp" | "both")}
             className="flex h-10 w-full rounded-md border border-input bg-background px-3.5 py-2 text-sm focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2 focus-visible:ring-offset-background transition-colors duration-fast ease-anthropic-out">
             <option value="tcp">TCP</option>
             <option value="udp">UDP</option>
