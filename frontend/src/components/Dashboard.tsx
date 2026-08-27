@@ -161,7 +161,7 @@ export function Dashboard({ onLogout }: { onLogout: () => void }) {
       <header className="border-b border-border">
         <div className="max-w-4xl mx-auto px-6 py-3 flex items-center justify-between">
           <div>
-            <h1 className="text-lg font-semibold tracking-tight">Port Forwards</h1>
+            <h1 className="text-lg font-semibold tracking-tight">देसी Datacenter</h1>
             <p className="text-xs text-muted-foreground">iptables DNAT rules</p>
           </div>
           <div className="flex items-center gap-2">
@@ -255,7 +255,7 @@ export function Dashboard({ onLogout }: { onLogout: () => void }) {
 
       <footer className="mt-auto bg-card border-t border-border">
         <div className="max-w-4xl mx-auto px-6 py-4 flex items-center justify-between">
-          <span className="label-upper text-muted-foreground tracking-widest">Port Forward Dashboard</span>
+          <span className="label-upper text-muted-foreground tracking-widest">देसी Datacenter Port Dash</span>
           <span className="label-upper text-muted-foreground">v{updateInfo?.current || "?"}</span>
         </div>
       </footer>
