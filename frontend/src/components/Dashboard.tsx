@@ -22,6 +22,35 @@ const SELECT_CLASS =
 
 const FIELD_LABEL_CLASS = "block text-[14px] font-medium text-muted-foreground mb-2";
 
+// 18px stroked glyphs, currentColor so they inherit the button's ghost styling.
+// Inline rather than an icon package: two paths do not justify a dependency.
+const iconProps = {
+  width: 18,
+  height: 18,
+  viewBox: "0 0 24 24",
+  fill: "none",
+  stroke: "currentColor",
+  strokeWidth: 2,
+  strokeLinecap: "round" as const,
+  strokeLinejoin: "round" as const,
+  "aria-hidden": true,
+};
+
+const RefreshIcon = () => (
+  <svg {...iconProps}>
+    <path d="M21 12a9 9 0 1 1-9-9c2.52 0 4.93 1 6.74 2.74L21 8" />
+    <path d="M21 3v5h-5" />
+  </svg>
+);
+
+const LogoutIcon = () => (
+  <svg {...iconProps}>
+    <path d="M9 21H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h4" />
+    <path d="M16 17l5-5-5-5" />
+    <path d="M21 12H9" />
+  </svg>
+);
+
 export function Dashboard({ onLogout }: { onLogout: () => void }) {
   const [rules, setRules] = useState<Rule[]>([]);
   const [netInfo, setNetInfo] = useState<NetworkInfo | null>(null);
@@ -35,6 +64,7 @@ export function Dashboard({ onLogout }: { onLogout: () => void }) {
   const [confirmDeleteId, setConfirmDeleteId] = useState<number | null>(null);
   const [statuses, setStatuses] = useState<Record<number, RuleStatus>>({});
   const [verifying, setVerifying] = useState<number[]>([]);
+  const [awsOpen, setAwsOpen] = useState(false);
   const cachedRules = useRef<Rule[]>([]);
   const deleteTimeoutRef = useRef<ReturnType<typeof setTimeout> | null>(null);
   const cleanup = useRef<(() => void) | null>(null);
@@ -60,7 +90,14 @@ export function Dashboard({ onLogout }: { onLogout: () => void }) {
     try {
       setLsStatus(await api.lightsailStatus());
     } catch {
-      setLsStatus({ configured: false, reason: "API unreachable" });
+      // Not a credentials problem, so do not send the user to the credentials form.
+      setLsStatus({
+        configured: false,
+        reason: "API unreachable",
+        needs_credentials: false,
+        instance: "",
+        region: "",
+      });
     }
   };
 
@@ -88,20 +125,6 @@ export function Dashboard({ onLogout }: { onLogout: () => void }) {
     }
   };
 
-  const checkUpdate = async () => {
-    try {
-      const info = await api.checkUpdate();
-      setUpdateInfo(info);
-      if (info.update_available) {
-        alert(`Update available: v${info.current} → v${info.latest}`);
-      } else {
-        alert(`You're on the latest version (v${info.current})`);
-      }
-    } catch {
-      alert("Could not check for updates. Is the server reachable?");
-    }
-  };
-
   const handleUpdate = async () => {
     if (!confirm("Update to latest version? Port rules will be preserved.")) return;
     setUpdating(true);
@@ -125,9 +148,9 @@ export function Dashboard({ onLogout }: { onLogout: () => void }) {
     refreshStatuses();
     const poll = setInterval(refreshStatuses, 15000);
     cleanup.current = () => clearInterval(poll);
-    api.checkUpdate()
-      .then((v) => setUpdateInfo({ current: v.current, latest: v.current, update_available: false }))
-      .catch(() => {});
+    // Checked once on load instead of behind a button: the banner below is the
+    // only thing that ever used the result.
+    api.checkUpdate().then(setUpdateInfo).catch(() => {});
     return () => cleanup.current?.();
   }, []);
 
@@ -173,6 +196,7 @@ export function Dashboard({ onLogout }: { onLogout: () => void }) {
     onLogout();
   };
 
+  const aws = awsBadge(lsStatus);
   const onlinePeers = netInfo?.peers.filter((p) => p.online) || [];
   const canAddRule = onlinePeers.length > 0;
 
@@ -189,27 +213,46 @@ export function Dashboard({ onLogout }: { onLogout: () => void }) {
             <p className="text-[14px] text-white/60 mt-1">iptables DNAT rules on this host</p>
           </div>
           <div className="flex items-center gap-2">
-            {lsStatus?.configured && (
-              <span
-                className="hidden sm:inline-flex items-center gap-2 bg-white/10 text-white text-[14px] font-medium px-4 py-2 rounded-full"
-                title={`Lightsail: ${lsStatus.reason}`}
-              >
-                <span className="w-2 h-2 rounded-full bg-primary" />
-                Lightsail
-              </span>
-            )}
-            {lsStatus && !lsStatus.configured && lsStatus.reason !== "LIGHTSAIL_INSTANCE not set" && (
-              <span
-                className="hidden sm:inline-flex items-center gap-2 bg-white/10 text-destructive text-[14px] font-medium px-4 py-2 rounded-full"
-                title={`Lightsail error: ${lsStatus.reason}`}
-              >
-                <span className="w-2 h-2 rounded-full bg-destructive" />
-                Lightsail
-              </span>
-            )}
-            <Button variant="ghost" size="icon" onClick={load} title="Refresh">R</Button>
-            <Button variant="ghost" size="icon" onClick={checkUpdate} title="Check version">V</Button>
-            <Button variant="ghost" size="icon" onClick={logout} title="Sign out">X</Button>
+            <Dialog open={awsOpen} onOpenChange={setAwsOpen}>
+              {/* One pill, both states. It becomes a button only when clicking it
+                  can actually fix something, so a healthy connection is inert. */}
+              {aws.actionable ? (
+                <DialogTrigger asChild>
+                  <button
+                    type="button"
+                    className="inline-flex items-center gap-2 bg-white/10 hover:bg-white/20 transition-colors text-white text-[14px] font-medium px-4 py-2 rounded-full"
+                    title={aws.title}
+                  >
+                    <span className="w-2 h-2 rounded-full bg-destructive" />
+                    {aws.text}
+                  </button>
+                </DialogTrigger>
+              ) : (
+                <span
+                  className="hidden sm:inline-flex items-center gap-2 bg-white/10 text-white text-[14px] font-medium px-4 py-2 rounded-full"
+                  title={aws.title}
+                >
+                  <span
+                    className={`w-2 h-2 rounded-full ${aws.tone === "good" ? "bg-success" : "bg-muted-foreground"}`}
+                  />
+                  {aws.text}
+                </span>
+              )}
+              <AwsCredentialsDialog
+                current={lsStatus}
+                onSaved={(st) => {
+                  setLsStatus(st);
+                  setAwsOpen(false);
+                  refreshStatuses();
+                }}
+              />
+            </Dialog>
+            <Button variant="ghost" size="icon" onClick={load} title="Refresh" aria-label="Refresh">
+              <RefreshIcon />
+            </Button>
+            <Button variant="ghost" size="icon" onClick={logout} title="Sign out" aria-label="Sign out">
+              <LogoutIcon />
+            </Button>
           </div>
         </div>
       </header>
@@ -429,6 +472,31 @@ function RuleRow({
   );
 }
 
+// The header's AWS pill. "actionable" is the whole point: we only invite the
+// user into the credentials form when credentials are what is actually missing.
+export function awsBadge(status: LightsailStatus | null): {
+  text: string;
+  tone: "good" | "bad" | "idle";
+  title: string;
+  actionable: boolean;
+} {
+  if (!status)
+    return { text: "AWS", tone: "idle", title: "Checking the AWS connection…", actionable: false };
+  if (status.configured)
+    return {
+      text: "AWS connected",
+      tone: "good",
+      title: `Lightsail ${status.instance} in ${status.region}`,
+      actionable: false,
+    };
+  return {
+    text: "AWS not connected",
+    tone: "bad",
+    title: `${status.reason} — click to add credentials`,
+    actionable: status.needs_credentials,
+  };
+}
+
 export const VERIFY_INTERVAL_MS = 2000;
 export const VERIFY_ATTEMPTS = 15; // ~30s, comfortably past AWS's apply delay
 
@@ -607,6 +675,111 @@ function AddRuleDialog({
         <DialogFooter className="px-0 pb-0">
           <Button type="submit" disabled={busy}>
             {busy ? "Creating…" : "Create"}
+          </Button>
+        </DialogFooter>
+      </form>
+    </DialogContent>
+  );
+}
+
+
+function AwsCredentialsDialog({
+  current,
+  onSaved,
+}: {
+  current: LightsailStatus | null;
+  onSaved: (status: LightsailStatus) => void;
+}) {
+  const [accessKeyId, setAccessKeyId] = useState("");
+  const [secretAccessKey, setSecretAccessKey] = useState("");
+  const [instance, setInstance] = useState(current?.instance || "");
+  const [region, setRegion] = useState(current?.region || "ap-south-1");
+  const [busy, setBusy] = useState(false);
+  const [err, setErr] = useState<string | null>(null);
+
+  const submit = async (e: any) => {
+    e.preventDefault();
+    setBusy(true);
+    setErr(null);
+    try {
+      // The server rejects keys it cannot use, so reaching here means they work.
+      onSaved(
+        await api.setAwsConfig({
+          access_key_id: accessKeyId,
+          secret_access_key: secretAccessKey,
+          instance,
+          region,
+        })
+      );
+    } catch (e: any) {
+      setErr(e.message);
+    } finally {
+      setBusy(false);
+    }
+  };
+
+  return (
+    <DialogContent className="w-full">
+      <DialogHeader>
+        <DialogTitle>Connect AWS Lightsail</DialogTitle>
+        <p className="text-[14px] text-muted-foreground">
+          Needed to open ports in the AWS firewall and confirm they are really open.
+          Use an IAM user with the four <code>lightsail:*PublicPorts</code> and{" "}
+          <code>GetInstancePortStates</code> permissions.
+        </p>
+      </DialogHeader>
+      <form onSubmit={submit} className="space-y-5 mt-6 px-8">
+        <div>
+          <label className={FIELD_LABEL_CLASS}>Access key ID</label>
+          <Input
+            placeholder="AKIA…"
+            value={accessKeyId}
+            onChange={(e: any) => setAccessKeyId(e.target.value)}
+            required
+            autoFocus
+            autoComplete="off"
+            spellCheck={false}
+          />
+        </div>
+        <div>
+          <label className={FIELD_LABEL_CLASS}>Secret access key</label>
+          <Input
+            type="password"
+            value={secretAccessKey}
+            onChange={(e: any) => setSecretAccessKey(e.target.value)}
+            required
+            autoComplete="new-password"
+          />
+        </div>
+        <div className="grid grid-cols-2 gap-4">
+          <div>
+            <label className={FIELD_LABEL_CLASS}>Instance name</label>
+            <Input
+              placeholder="portscale"
+              value={instance}
+              onChange={(e: any) => setInstance(e.target.value)}
+              required
+              spellCheck={false}
+            />
+          </div>
+          <div>
+            <label className={FIELD_LABEL_CLASS}>Region</label>
+            <Input
+              placeholder="ap-south-1"
+              value={region}
+              onChange={(e: any) => setRegion(e.target.value)}
+              required
+              spellCheck={false}
+            />
+          </div>
+        </div>
+        {current && !current.configured && current.reason !== "No AWS credentials configured" && (
+          <p className="text-[14px] text-muted-foreground">Last error: {current.reason}</p>
+        )}
+        {err && <p className="text-[14px] text-destructive">{err}</p>}
+        <DialogFooter className="px-0 pb-0">
+          <Button type="submit" disabled={busy}>
+            {busy ? "Verifying…" : "Save & connect"}
           </Button>
         </DialogFooter>
       </form>

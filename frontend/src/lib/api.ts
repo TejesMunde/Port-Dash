@@ -99,6 +99,17 @@ export type RuleStatus = {
 export type LightsailStatus = {
   configured: boolean;
   reason: string;
+  /** True when the fix is credentials, so the UI can offer the form. */
+  needs_credentials: boolean;
+  instance: string;
+  region: string;
+};
+
+export type AwsCredentials = {
+  access_key_id: string;
+  secret_access_key: string;
+  instance: string;
+  region: string;
 };
 
 export const api = {
@@ -114,4 +125,6 @@ export const api = {
   triggerUpdate: () => request<{ ok: boolean; message: string }>("/api/update", { method: "POST" }),
   rulesStatus: () => request<RuleStatus[]>("/api/rules/status"),
   lightsailStatus: () => request<LightsailStatus>("/api/lightsail-status"),
+  setAwsConfig: (c: AwsCredentials) =>
+    request<LightsailStatus>("/api/aws-config", { method: "POST", body: JSON.stringify(c) }),
 };

@@ -35,8 +35,7 @@ TOKEN_EXPIRE_MINUTES = 60 * 24
 DB_PATH = os.environ.get("DB_PATH", "/var/lib/portforward/rules.db")
 DRY_RUN = os.environ.get("DRY_RUN", "0") == "1"
 TAILSCALE_TAG_FILTER = os.environ.get("TAILSCALE_TAG_FILTER", "")
-LIGHTSAIL_INSTANCE = os.environ.get("LIGHTSAIL_INSTANCE", "")
-AWS_REGION = os.environ.get("AWS_REGION", "ap-south-1")
+ENV_FILE = Path(os.environ.get("ENV_FILE", Path(__file__).parent.parent / ".env"))
 VERSION_FILE = Path(__file__).parent.parent / "VERSION"
 
 Path(DB_PATH).parent.mkdir(parents=True, exist_ok=True)
@@ -144,14 +143,29 @@ def remove_rule(rule: ForwardRule) -> None:
 
 
 # ----- Lightsail firewall -----
+# Credentials live in the systemd EnvironmentFile and can be set from the UI, so
+# every read goes through os.environ instead of a constant captured at import.
+def aws_config() -> dict:
+    return {
+        "instance": os.environ.get("LIGHTSAIL_INSTANCE", ""),
+        "region": os.environ.get("AWS_REGION", "ap-south-1"),
+    }
+
+
+def _ls_client():
+    """A fresh Session each time -- boto3's default one caches credentials, which
+    would keep serving the old keys after the UI writes new ones."""
+    import boto3
+    return boto3.Session().client("lightsail", region_name=aws_config()["region"])
+
+
 def lightsail_open(port: int, protocol: str) -> None:
-    if not LIGHTSAIL_INSTANCE or DRY_RUN:
+    cfg = aws_config()
+    if not cfg["instance"] or DRY_RUN:
         return
     try:
-        import boto3
-        client = boto3.client("lightsail", region_name=AWS_REGION)
-        client.open_instance_public_ports(
-            instanceName=LIGHTSAIL_INSTANCE,
+        _ls_client().open_instance_public_ports(
+            instanceName=cfg["instance"],
             portInfo={"fromPort": port, "toPort": port, "protocol": protocol},
         )
     except Exception as e:
@@ -159,29 +173,44 @@ def lightsail_open(port: int, protocol: str) -> None:
 
 
 def lightsail_status() -> dict:
-    if not LIGHTSAIL_INSTANCE:
-        return {"configured": False, "reason": "LIGHTSAIL_INSTANCE not set"}
+    """needs_credentials tells the UI whether to offer the 'add credentials' form.
+    Any failure qualifies -- a wrong key and a denied key are both fixed there."""
+    cfg = aws_config()
+    if not cfg["instance"]:
+        return {"configured": False, "reason": "No AWS credentials configured", "needs_credentials": True, **cfg}
     try:
-        import boto3
-        client = boto3.client("lightsail", region_name=AWS_REGION)
-        client.get_instance_port_states(instanceName=LIGHTSAIL_INSTANCE)
-        return {"configured": True, "reason": "ok"}
+        _ls_client().get_instance_port_states(instanceName=cfg["instance"])
+        return {"configured": True, "reason": "ok", "needs_credentials": False, **cfg}
     except Exception as e:
-        return {"configured": False, "reason": str(e)}
+        return {"configured": False, "reason": str(e), "needs_credentials": True, **cfg}
 
 
 def lightsail_close(port: int, protocol: str) -> None:
-    if not LIGHTSAIL_INSTANCE or DRY_RUN:
+    cfg = aws_config()
+    if not cfg["instance"] or DRY_RUN:
         return
     try:
-        import boto3
-        client = boto3.client("lightsail", region_name=AWS_REGION)
-        client.close_instance_public_ports(
-            instanceName=LIGHTSAIL_INSTANCE,
+        _ls_client().close_instance_public_ports(
+            instanceName=cfg["instance"],
             portInfo={"fromPort": port, "toPort": port, "protocol": protocol},
         )
     except Exception as e:
         print(f"[lightsail] close {port}/{protocol} failed: {e}")
+
+
+def write_env(values: dict[str, str]) -> None:
+    """Update keys in the EnvironmentFile in place, keeping every other line."""
+    lines = ENV_FILE.read_text().splitlines() if ENV_FILE.exists() else []
+    for key, value in values.items():
+        entry = f"{key}={value}"
+        for i, line in enumerate(lines):
+            if line.split("=", 1)[0].strip().lstrip("#").strip() == key:
+                lines[i] = entry
+                break
+        else:
+            lines.append(entry)
+    ENV_FILE.write_text("\n".join(lines) + "\n")
+    ENV_FILE.chmod(0o600)
 
 
 # ----- Verification -----
@@ -196,15 +225,14 @@ _ls_cache: Optional[tuple[float, list[dict]]] = None
 def _lightsail_ports() -> tuple[Optional[list[dict]], str]:
     """(port_states, reason). port_states is None when AWS cannot be asked at all."""
     global _ls_cache
-    if not LIGHTSAIL_INSTANCE:
-        return None, "LIGHTSAIL_INSTANCE not set"
+    instance = aws_config()["instance"]
+    if not instance:
+        return None, "No AWS credentials configured"
     now = time.monotonic()
     if _ls_cache and now - _ls_cache[0] < _LS_TTL:
         return _ls_cache[1], "ok"
     try:
-        import boto3
-        client = boto3.client("lightsail", region_name=AWS_REGION)
-        states = client.get_instance_port_states(instanceName=LIGHTSAIL_INSTANCE)["portStates"]
+        states = _ls_client().get_instance_port_states(instanceName=instance)["portStates"]
         _ls_cache = (now, states)
         return states, "ok"
     except Exception as e:
@@ -513,6 +541,41 @@ def rules_status(user: str = Depends(current_user)):
 @app.get("/api/lightsail-status")
 def get_lightsail_status(user: str = Depends(current_user)):
     return lightsail_status()
+
+
+class AwsCredentials(BaseModel):
+    access_key_id: str = Field(min_length=16, max_length=128)
+    secret_access_key: str = Field(min_length=8, max_length=256)
+    instance: str = Field(min_length=1, max_length=255)
+    region: str = Field(default="ap-south-1", min_length=1, max_length=64)
+
+
+@app.post("/api/aws-config")
+def set_aws_config(body: AwsCredentials, user: str = Depends(current_user)):
+    """Save AWS credentials from the UI and prove they work before persisting.
+    A bad key that we accepted would leave the dashboard silently blind again."""
+    global _ls_cache
+    previous = {k: os.environ.get(k) for k in
+                ("AWS_ACCESS_KEY_ID", "AWS_SECRET_ACCESS_KEY", "LIGHTSAIL_INSTANCE", "AWS_REGION")}
+    os.environ.update({
+        "AWS_ACCESS_KEY_ID": body.access_key_id.strip(),
+        "AWS_SECRET_ACCESS_KEY": body.secret_access_key.strip(),
+        "LIGHTSAIL_INSTANCE": body.instance.strip(),
+        "AWS_REGION": body.region.strip(),
+    })
+    _ls_cache = None
+    result = lightsail_status()
+    if not result["configured"]:
+        for key, value in previous.items():
+            os.environ.pop(key, None) if value is None else os.environ.update({key: value})
+        raise HTTPException(status_code=400, detail=result["reason"])
+    write_env({
+        "AWS_ACCESS_KEY_ID": body.access_key_id.strip(),
+        "AWS_SECRET_ACCESS_KEY": body.secret_access_key.strip(),
+        "LIGHTSAIL_INSTANCE": body.instance.strip(),
+        "AWS_REGION": body.region.strip(),
+    })
+    return result
 
 
 @app.get("/api/health")

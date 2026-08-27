@@ -28,6 +28,10 @@
     --destructive: 349 76% 45%;     /* Warning Red      #c81b3a */
     --destructive-foreground: 0 0% 100%;
 
+    /* Status only. The one green in the system: a live connection, nothing else. */
+    --success: 145 63% 38%;         /* Signal Green     #24a05a */
+    --success-foreground: 0 0% 100%;
+
     --border: 0 0% 12%;             /* Deep Charcoal    #1f1f1f */
     --input: 0 0% 42%;              /* Body Gray        #6b6b6b */
     --ring: 207 100% 40%;           /* PlayStation Blue #0070cc */
@@ -41,14 +45,10 @@
     @apply border-border;
   }
   html {
-    /* Black canvas only: it paints beneath the negative-z video layer and shows
-       during overscroll. Body must stay transparent or its paint would cover
-       the background loop entirely (negative z-index sits below body's paint). */
     background-color: hsl(var(--background));
   }
   body {
-    @apply text-foreground antialiased;
-    background-color: transparent;
+    @apply bg-background text-foreground antialiased;
     /* SST is Sony-proprietary; Arial/Helvetica is the fallback the system specifies. */
     font-family: "SST", "PlayStation SST", Arial, Helvetica, sans-serif;
   }

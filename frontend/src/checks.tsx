@@ -2,8 +2,8 @@
 // Run: npx esbuild src/checks.tsx --bundle --platform=node --alias:@=./src --outfile=checks.cjs && node checks.cjs
 import { renderToStaticMarkup } from "react-dom/server";
 import { Dialog, DialogTrigger, DialogContent } from "./components/ui/dialog";
-import { createForProtocols, badgeFor, verificationSettled } from "./components/Dashboard";
-import type { Rule, RuleInput, RuleStatus } from "./lib/api";
+import { createForProtocols, badgeFor, verificationSettled, awsBadge } from "./components/Dashboard";
+import type { Rule, RuleInput, RuleStatus, LightsailStatus } from "./lib/api";
 
 const assert = (cond: boolean, msg: string) => {
   if (!cond) throw new Error("checks FAILED: " + msg);
@@ -125,6 +125,39 @@ const run = async () => {
   res = await createForProtocols("both", base, failOn("tcp"));
   assert(res.created.length === 0, "both/tcp-fails: nothing created");
   assert(res.error === "TCP port 25565 already mapped", "both/tcp-fails: raw error, no prefix");
+
+  // --- awsBadge: green only on a proven connection, form only when it helps ---
+  const ls = (o: Partial<LightsailStatus>): LightsailStatus => ({
+    configured: false,
+    reason: "",
+    needs_credentials: false,
+    instance: "",
+    region: "",
+    ...o,
+  });
+
+  // Before the first response we must not claim either state.
+  let b = awsBadge(null);
+  assert(b.tone === "idle" && !b.actionable, "aws: unknown before the first response");
+
+  // A working connection is the only thing allowed to go green, and it is inert.
+  b = awsBadge(ls({ configured: true, reason: "ok", instance: "portscale", region: "ap-south-1" }));
+  assert(b.tone === "good", "aws: connected is green");
+  assert(!b.actionable, "aws: connected does not open the credentials form");
+  assert(b.title.includes("portscale") && b.title.includes("ap-south-1"), "aws: names instance and region");
+
+  // Missing credentials: red, and clicking must lead to the form.
+  b = awsBadge(ls({ reason: "No AWS credentials configured", needs_credentials: true }));
+  assert(b.tone === "bad" && b.actionable, "aws: missing creds prompts");
+
+  // The AccessDenied case this instance actually hits is still a credentials fix.
+  b = awsBadge(ls({ reason: "AccessDeniedException", needs_credentials: true }));
+  assert(b.tone === "bad" && b.actionable, "aws: denied role prompts");
+  assert(b.title.includes("AccessDeniedException"), "aws: surfaces the real reason");
+
+  // A dead backend is not a credentials problem -- never send the user to the form.
+  b = awsBadge(ls({ reason: "API unreachable", needs_credentials: false }));
+  assert(b.tone === "bad" && !b.actionable, "aws: unreachable API does not prompt for creds");
 
   console.log("checks ok");
 };
