@@ -1,13 +1,23 @@
 # Port Forward Dashboard
 
-A simple web UI to manage iptables DNAT port forwards on your VPS.
+A web UI to manage iptables DNAT port forwards on your VPS, with live verification and AWS Lightsail integration.
+
+## Features
+
+- **Port forwarding** — Create, toggle, and delete iptables DNAT rules from a web UI
+- **TCP + UDP** — Create rules for either protocol or both at once
+- **Live verification** — Each rule shows real-time status (firewall open, backend reachable, nothing listening)
+- **AWS Lightsail integration** — Auto-opens firewall ports, shows connection status, inline credential setup
+- **Tailscale peers** — Discovers online peers and their IPs for destination selection
+- **Auto-updates** — Checks for updates on load, updates in-place with rule preservation
+- **Anthropic-inspired design** — Warm dark palette, terracotta accents, restrained motion, serif headings
 
 ## Stack
 
 - **Backend**: FastAPI + SQLModel + SQLite + Argon2 + JWT
-- **Frontend**: Vite + React + TypeScript + Tailwind + Radix UI
+- **Frontend**: Vite + React + TypeScript + Tailwind CSS
 - **Process**: systemd
-- **Storage**: SQLite (for the dashboard) + `/etc/iptables/rules.v4` (kernel source of truth)
+- **Storage**: SQLite (dashboard state) + `/etc/iptables/rules.v4` (kernel source of truth)
 
 ## Local development (no root needed)
 
@@ -85,7 +95,54 @@ dash.timepass.store {
 - Login is rate-limited at the proxy layer if you use Caddy/Cloudflare.
 - The DB only stores rules — no traffic logs, no secrets.
 - Rules persist via `netfilter-persistent save` automatically after each change.
+- AWS credentials are stored in `/etc/environment` and validated before persisting.
 
 ## Updating
 
 To change the public/internal port of a forward: delete + recreate. iptables doesn't have an "edit in place" for nat rules in a clean way.
+
+## Project structure
+
+```
+├── AGENTS.md                    # DOX tree root — project-wide rules
+├── backend/
+│   ├── AGENTS.md                # Backend DOX — routes, auth, iptables, DB
+│   ├── main.py                  # FastAPI app (all endpoints)
+│   ├── requirements.txt
+│   ├── hash_password.py         # Argon2 password hash generator
+│   └── portforward.service      # systemd unit
+├── frontend/
+│   ├── AGENTS.md                # Frontend DOX — build, design system, motion
+│   ├── src/
+│   │   ├── components/
+│   │   │   ├── AGENTS.md        # Components DOX — primitives + page components
+│   │   │   ├── Dashboard.tsx    # Main page: rules, verification, AWS badge
+│   │   │   ├── LoginScreen.tsx  # Login form
+│   │   │   └── ui/              # Reusable primitives (Button, Card, Input, Switch, Dialog)
+│   │   ├── lib/
+│   │   │   ├── AGENTS.md        # Lib DOX — API client, types
+│   │   │   ├── api.ts           # API client with auth, error handling
+│   │   │   └── utils.ts         # cn() utility
+│   │   ├── checks.tsx           # Runtime assertions for exported helpers
+│   │   ├── App.tsx              # Auth gate, video background
+│   │   └── index.css            # Design tokens, keyframes, motion
+│   └── tailwind.config.js       # Token-to-Tailwind mapping
+└── install.sh                   # One-shot VPS setup script
+```
+
+## Design system
+
+The UI uses an Anthropic-inspired warm dark palette with tokenized motion:
+
+| Token | Value | Use |
+|-------|-------|-----|
+| `--primary` | `#c4703a` (terracotta) | Accent, focus rings, interactive elements |
+| `--background` | `#1a1714` (warm charcoal) | Page background |
+| `--foreground` | `#e8e0d8` (warm off-white) | Body text |
+| `--border` | `#332e2a` | Subtle warm borders |
+| `--duration-fast` | `100ms` | Micro-interactions |
+| `--duration-normal` | `150ms` | Hover, focus transitions |
+| `--duration-slow` | `200ms` | Dialog entrance, switch |
+| `--ease-out` | `cubic-bezier(0.16, 1, 0.3, 1)` | Smooth settle |
+
+Typography: **Source Serif 4** (headings) + **system-ui** (body) + **JetBrains Mono** (code). All animations respect `prefers-reduced-motion`.
