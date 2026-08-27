@@ -40,7 +40,7 @@ export function Dialog({
       <dialog
         ref={ref}
         className={cn(
-          "backdrop:bg-black/60",
+          "backdrop:bg-black/80",
           "open:animate-dialog-in"
         )}
         style={{
@@ -49,7 +49,7 @@ export function Dialog({
           margin: "auto",
           padding: 0,
           border: "1px solid hsl(var(--border))",
-          borderRadius: "0.5rem",
+          borderRadius: "2px",
           background: "hsl(var(--card))",
           color: "hsl(var(--card-foreground))",
         }}

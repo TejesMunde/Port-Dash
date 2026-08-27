@@ -16,14 +16,15 @@ export default {
         destructive: { DEFAULT: "hsl(var(--destructive))", foreground: "hsl(var(--destructive-foreground))" },
         card: { DEFAULT: "hsl(var(--card))", foreground: "hsl(var(--card-foreground))" },
         success: { DEFAULT: "hsl(var(--success))" },
+        info: { DEFAULT: "hsl(var(--info))" },
       },
       fontFamily: {
-        sans: ["Inter", "-apple-system", "BlinkMacSystemFont", "Segoe UI", "Roboto", "Arial", "sans-serif"],
-        mono: ["SF Mono", "Fira Code", "Fira Mono", "Roboto Mono", "monospace"],
+        sans: ["Inter", "Arial", "Helvetica", "sans-serif"],
+        mono: ["SF Mono", "Fira Code", "Roboto Mono", "monospace"],
       },
-      borderRadius: { lg: "0.75rem", md: "0.25rem", sm: "0.25rem" },
+      borderRadius: { lg: "0.5rem", md: "2px", sm: "2px" },
       transitionTimingFunction: {
-        "tesla": "cubic-bezier(0.5, 0, 0, 0.75)",
+        "ferrari": "cubic-bezier(0.25, 0.1, 0.25, 1)",
       },
       transitionDuration: {
         "fast": "var(--duration-fast)",

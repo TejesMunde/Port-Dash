@@ -1,4 +1,4 @@
-@import url("https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600&display=swap");
+@import url("https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&display=swap");
 
 @tailwind base;
 @tailwind components;
@@ -6,40 +6,41 @@
 
 @layer base {
   :root {
-    /* Dark Tesla — Carbon Dark canvas, Electric Blue accent */
-    --background: 220 15% 11%;         /* #171A20 — Carbon Dark */
+    /* Ferrari — Absolute Black canvas, Rosso Corsa accent, editorial precision */
+    --background: 0 0% 0%;             /* #000000 — Absolute Black */
     --foreground: 0 0% 100%;           /* White */
 
-    --card: 220 15% 14%;               /* #1E2128 — slightly elevated */
-    --card-foreground: 0 0% 100%;
+    --card: 0 0% 100%;                 /* White — editorial panels */
+    --card-foreground: 0 0% 9%;        /* #181818 — Near Black */
 
-    --primary: 227 69% 57%;            /* #3E6AE1 — Electric Blue */
+    --primary: 4 77% 51%;              /* #DA291C — Ferrari Red */
     --primary-foreground: 0 0% 100%;
 
-    --secondary: 220 13% 18%;          /* #2A2D35 — elevated surface */
+    --secondary: 0 0% 19%;             /* #303030 — Dark Surface */
     --secondary-foreground: 0 0% 90%;
 
-    --muted: 220 13% 18%;
-    --muted-foreground: 220 5% 55%;    /* #7D828C — Pewter */
+    --muted: 0 0% 19%;
+    --muted-foreground: 0 0% 56%;      /* #8F8F8F — Mid Gray */
 
-    --accent: 220 13% 18%;
+    --accent: 4 77% 51%;               /* Ferrari Red — used sparingly */
     --accent-foreground: 0 0% 100%;
 
-    --destructive: 0 72% 51%;
+    --destructive: 2 82% 57%;          /* #F13A2C — Warning Red */
     --destructive-foreground: 0 0% 100%;
 
-    --border: 220 13% 20%;             /* #33363D — subtle dividers */
-    --input: 220 13% 20%;
-    --ring: 227 69% 57%;               /* Electric Blue focus */
+    --border: 0 0% 20%;                /* #333333 — subtle dark dividers */
+    --input: 0 0% 20%;
+    --ring: 4 77% 51%;                 /* Ferrari Red focus */
 
-    --success: 142 60% 45%;
+    --success: 148 68% 29%;            /* #03904A */
+    --info: 197 34% 51%;               /* #4C98B9 */
 
-    /* Tesla motion — uniform 0.33s */
-    --ease-out: cubic-bezier(0.5, 0, 0, 0.75);
-    --ease-in-out: cubic-bezier(0.5, 0, 0, 0.75);
-    --duration-fast: 250ms;
-    --duration-normal: 330ms;
-    --duration-slow: 330ms;
+    /* Ferrari motion — crisp, editorial */
+    --ease-out: cubic-bezier(0.25, 0.1, 0.25, 1);
+    --ease-in-out: cubic-bezier(0.42, 0, 0.58, 1);
+    --duration-fast: 200ms;
+    --duration-normal: 300ms;
+    --duration-slow: 300ms;
   }
 }
 
@@ -48,19 +49,20 @@
   html { background-color: hsl(var(--background)); }
   body {
     @apply bg-background text-foreground antialiased;
-    font-family: "Inter", -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, Arial, sans-serif;
+    font-family: "Inter", Arial, Helvetica, sans-serif;
   }
   h1, h2, h3, h4, h5, h6 {
-    font-family: "Inter", -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, Arial, sans-serif;
+    font-family: "Inter", Arial, Helvetica, sans-serif;
   }
   code, pre, .font-mono {
-    font-family: "SF Mono", "Fira Code", "Fira Mono", "Roboto Mono", monospace;
+    font-family: "SF Mono", "Fira Code", "Roboto Mono", monospace;
   }
   ::selection {
-    background-color: hsl(227 69% 57% / 0.3);
+    background-color: hsl(4 77% 51% / 0.3);
   }
 }
 
+/* Ferrari entrance — sharp fade */
 @keyframes dialog-in {
   from { opacity: 0; }
   to { opacity: 1; }
@@ -90,10 +92,18 @@
   100% { background-position: 200% 0; }
 }
 .skeleton {
-  background: linear-gradient(90deg, hsl(var(--secondary)) 25%, hsl(var(--border)) 50%, hsl(var(--secondary)) 75%);
+  background: linear-gradient(90deg, hsl(var(--secondary)) 25%, hsl(0 0% 25%) 50%, hsl(var(--secondary)) 75%);
   background-size: 200% 100%;
   animation: shimmer 1.5s ease-in-out infinite;
-  border-radius: 4px;
+  border-radius: 2px;
+}
+
+/* Editorial uppercase label utility */
+.label-upper {
+  text-transform: uppercase;
+  letter-spacing: 1px;
+  font-size: 0.75rem;
+  font-weight: 400;
 }
 
 @media (prefers-reduced-motion: reduce) {

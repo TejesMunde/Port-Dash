@@ -25,15 +25,16 @@ export function LoginScreen({ onSuccess }: { onSuccess: () => void }) {
   };
 
   return (
-    <div className="min-h-screen grid place-items-center p-4 animate-page-in">
+    <div className="min-h-screen grid place-items-center p-4 animate-page-in bg-background">
       <Card className="w-full max-w-sm p-8">
         <div className="text-center mb-6">
+          <div className="label-upper text-muted-foreground mb-3 tracking-widest">Dashboard</div>
           <h1 className="text-2xl font-semibold tracking-tight">Port Forward</h1>
           <p className="text-sm text-muted-foreground mt-1">Sign in to manage iptables rules</p>
         </div>
         <form onSubmit={submit} className="space-y-4">
           <div>
-            <label className="text-xs text-muted-foreground mb-1.5 block">Username</label>
+            <label className="label-upper text-muted-foreground mb-1.5 block">Username</label>
             <Input
               autoFocus
               placeholder="admin"
@@ -42,7 +43,7 @@ export function LoginScreen({ onSuccess }: { onSuccess: () => void }) {
             />
           </div>
           <div>
-            <label className="text-xs text-muted-foreground mb-1.5 block">Password</label>
+            <label className="label-upper text-muted-foreground mb-1.5 block">Password</label>
             <Input
               type="password"
               placeholder="Password"

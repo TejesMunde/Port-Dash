@@ -14,8 +14,8 @@ export function Card({
   return (
     <div
       className={cn(
-        "rounded-lg bg-card text-card-foreground",
-        "transition-colors duration-normal ease-tesla",
+        "rounded bg-card text-card-foreground",
+        "transition-colors duration-normal ease-ferrari",
         hoverable && "hover:bg-secondary",
         className
       )}
