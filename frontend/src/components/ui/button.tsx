@@ -3,46 +3,19 @@ import { cn } from "../../lib/utils";
 type Variant = "default" | "destructive" | "outline" | "ghost" | "secondary";
 type Size = "default" | "sm" | "lg" | "icon";
 
-// The signature move, applied to every pill button: cyan fill + 2px white border
-// + 2px PlayStation-blue outer ring + scale(1.2), all on a 180ms ease.
-// Miss any of the four and the interaction signature breaks.
-const SIGNATURE =
-  "border-2 border-transparent relative hover:z-10 focus-visible:z-10 " +
-  "hover:bg-accent hover:text-white hover:border-white hover:scale-[1.2] " +
-  "hover:shadow-[0_0_0_2px_hsl(var(--primary))] " +
-  "focus-visible:bg-accent focus-visible:text-white focus-visible:border-white focus-visible:scale-[1.2] " +
-  "focus-visible:shadow-[0_0_0_2px_hsl(var(--primary))] " +
-  "active:opacity-60";
-
 const variantClasses: Record<Variant, string> = {
-  default: "bg-primary text-primary-foreground " + SIGNATURE,
-  destructive: "bg-destructive text-destructive-foreground " + SIGNATURE,
-  // Secondary — frosted glass pill: translucent white over whatever it sits on.
-  outline: "bg-white text-primary !border-black " + SIGNATURE,
-  secondary: "bg-white/10 text-secondary-foreground " + SIGNATURE,
-  // Transparent ghost — nav-optimized, quiet at rest.
-  ghost: "bg-transparent text-foreground !border-[#1f1f1f] " + SIGNATURE,
-};
-
-// Icon Circle lightens on hover instead of taking the scale/ring treatment, so
-// controls never jump. Which surface it sits on is chosen by the variant:
-// `ghost` on the black masthead, `secondary` on glass panels.
-const iconClasses: Record<Variant, string> = {
-  ghost: "bg-white/10 text-white hover:bg-white/25",
-  secondary: "bg-white/10 text-foreground hover:bg-white/20",
-  default: "bg-primary text-primary-foreground hover:bg-accent",
-  destructive: "bg-destructive text-destructive-foreground hover:bg-accent",
-  outline: "bg-white text-primary border-2 border-black hover:bg-secondary",
+  default: "bg-primary text-primary-foreground hover:bg-primary/90 active:bg-primary/80",
+  destructive: "bg-destructive text-destructive-foreground hover:bg-destructive/90 active:bg-destructive/80",
+  outline: "border border-border bg-transparent hover:bg-secondary active:bg-secondary/80 text-foreground",
+  ghost: "hover:bg-secondary active:bg-secondary/80 text-foreground",
+  secondary: "bg-secondary text-secondary-foreground hover:bg-secondary/80 active:bg-secondary/70",
 };
 
 const sizeClasses: Record<Size, string> = {
-  // Button / CTA: 18px / 500 / 0.4px. ~48px tall keeps it WCAG AAA for touch.
-  default: "h-12 px-6 text-[18px] font-medium tracking-[0.4px] rounded-full",
-  // Mini CTA (in-card): 14px / 700 / 0.324px.
-  sm: "h-10 px-4 text-[14px] font-bold tracking-[0.324px] rounded-full",
-  // Emphasized CTA: 18px / 700 / 0.45px.
-  lg: "h-14 px-8 text-[18px] font-bold tracking-[0.45px] rounded-full",
-  icon: "h-10 w-10 rounded-full",
+  default: "h-10 px-5 text-sm",
+  sm: "h-9 px-3.5 text-xs",
+  lg: "h-11 px-7 text-sm",
+  icon: "h-10 w-10",
 };
 
 export function Button({
@@ -60,17 +33,15 @@ export function Button({
   children?: React.ReactNode;
   [key: string]: any;
 }) {
-  const isIcon = size === "icon";
   return (
     <button
       className={cn(
-        "inline-flex items-center justify-center gap-2 whitespace-nowrap leading-none",
-        "transition-[background-color,border-color,box-shadow,transform,opacity] duration-180 ease-out",
-        "focus-visible:outline-none disabled:pointer-events-none disabled:opacity-50",
+        "inline-flex items-center justify-center gap-1.5 rounded-md font-medium",
+        "transition-colors duration-normal ease-anthropic-out",
+        "focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2 focus-visible:ring-offset-background",
+        "disabled:pointer-events-none disabled:opacity-40",
+        variantClasses[variant],
         sizeClasses[size],
-        isIcon
-          ? "text-[14px] font-bold active:opacity-60 " + iconClasses[variant]
-          : variantClasses[variant],
         className
       )}
       disabled={disabled}

@@ -1,5 +1,5 @@
 import { useEffect, useRef, useState } from "react";
-import { api, clearToken, type Rule, type RuleInput, type NetworkInfo, type Peer, type UpdateInfo, type LightsailStatus, type RuleStatus } from "@/lib/api";
+import { api, clearToken, type Rule, type RuleInput, type RuleStatus, type NetworkInfo, type Peer, type UpdateInfo, type LightsailStatus } from "@/lib/api";
 import { Button } from "@/components/ui/button";
 import { Card } from "@/components/ui/card";
 import { Switch } from "@/components/ui/switch";
@@ -13,44 +13,6 @@ import {
   DialogTrigger,
 } from "@/components/ui/dialog";
 
-// Selects are plain elements rather than a component, matched to Input's shape:
-// 3px radius, Mute Gray border, 2px blue focus ring.
-const SELECT_CLASS =
-  "flex h-12 w-full rounded-sm border border-input bg-background px-3 py-2 text-[16px] text-foreground " +
-  "transition-[border-color,box-shadow] duration-180 ease-out " +
-  "focus-visible:outline-none focus-visible:shadow-[0_0_0_2px_hsl(var(--primary))]";
-
-const FIELD_LABEL_CLASS = "block text-[14px] font-medium text-muted-foreground mb-2";
-
-// 18px stroked glyphs, currentColor so they inherit the button's ghost styling.
-// Inline rather than an icon package: two paths do not justify a dependency.
-const iconProps = {
-  width: 18,
-  height: 18,
-  viewBox: "0 0 24 24",
-  fill: "none",
-  stroke: "currentColor",
-  strokeWidth: 2,
-  strokeLinecap: "round" as const,
-  strokeLinejoin: "round" as const,
-  "aria-hidden": true,
-};
-
-const RefreshIcon = () => (
-  <svg {...iconProps}>
-    <path d="M21 12a9 9 0 1 1-9-9c2.52 0 4.93 1 6.74 2.74L21 8" />
-    <path d="M21 3v5h-5" />
-  </svg>
-);
-
-const LogoutIcon = () => (
-  <svg {...iconProps}>
-    <path d="M9 21H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h4" />
-    <path d="M16 17l5-5-5-5" />
-    <path d="M21 12H9" />
-  </svg>
-);
-
 export function Dashboard({ onLogout }: { onLogout: () => void }) {
   const [rules, setRules] = useState<Rule[]>([]);
   const [netInfo, setNetInfo] = useState<NetworkInfo | null>(null);
@@ -62,13 +24,18 @@ export function Dashboard({ onLogout }: { onLogout: () => void }) {
   const [lsStatus, setLsStatus] = useState<LightsailStatus | null>(null);
   const [ruleErrors, setRuleErrors] = useState<Record<number, string>>({});
   const [confirmDeleteId, setConfirmDeleteId] = useState<number | null>(null);
-  const [statuses, setStatuses] = useState<Record<number, RuleStatus>>({});
-  const [verifying, setVerifying] = useState<number[]>([]);
-  const [awsOpen, setAwsOpen] = useState(false);
-  const [fixRule, setFixRule] = useState<Rule | null>(null);
+  const [ruleStatuses, setRuleStatuses] = useState<RuleStatus[]>([]);
+  const [verifyingIds, setVerifyingIds] = useState<Set<number>>(new Set());
+  const [credOpen, setCredOpen] = useState(false);
+  const [credInstance, setCredInstance] = useState("");
+  const [credRegion, setCredRegion] = useState("ap-south-1");
+  const [credAccessKey, setCredAccessKey] = useState("");
+  const [credSecretKey, setCredSecretKey] = useState("");
+  const [credBusy, setCredBusy] = useState(false);
+  const [credErr, setCredErr] = useState<string | null>(null);
   const cachedRules = useRef<Rule[]>([]);
   const deleteTimeoutRef = useRef<ReturnType<typeof setTimeout> | null>(null);
-  const cleanup = useRef<(() => void) | null>(null);
+  const pollRef = useRef<ReturnType<typeof setInterval> | null>(null);
 
   const load = async () => {
     setLoading(true);
@@ -79,9 +46,7 @@ export function Dashboard({ onLogout }: { onLogout: () => void }) {
       setRules(rulesData);
       setNetInfo(netData);
     } catch (e: any) {
-      if (cachedRules.current.length === 0) {
-        setErr(e.message);
-      }
+      if (cachedRules.current.length === 0) setErr(e.message);
     } finally {
       setLoading(false);
     }
@@ -91,39 +56,31 @@ export function Dashboard({ onLogout }: { onLogout: () => void }) {
     try {
       setLsStatus(await api.lightsailStatus());
     } catch {
-      // Not a credentials problem, so do not send the user to the credentials form.
-      setLsStatus({
-        configured: false,
-        reason: "API unreachable",
-        needs_credentials: false,
-        instance: "",
-        region: "",
-      });
+      setLsStatus({ configured: false, reason: "API unreachable", needs_credentials: false, instance: "", region: "" });
     }
   };
 
-  const refreshStatuses = async (): Promise<RuleStatus[]> => {
+  // --- Verification polling ---
+  const pollVerification = async () => {
     try {
-      const list = await api.rulesStatus();
-      setStatuses(Object.fromEntries(list.map((st) => [st.id, st])));
-      return list;
-    } catch {
-      return [];
-    }
-  };
-
-  // AWS applies a firewall change a few seconds after the API returns, so the
-  // create call alone proves nothing. Poll until the ports actually report open.
-  const verifyOpen = async (ids: number[]) => {
-    setVerifying(ids);
-    try {
-      for (let attempt = 0; attempt < VERIFY_ATTEMPTS; attempt++) {
-        await new Promise((r) => setTimeout(r, VERIFY_INTERVAL_MS));
-        if (verificationSettled(ids, await refreshStatuses())) return;
+      const statuses = await api.rulesStatus();
+      setRuleStatuses(statuses);
+      if (verificationSettled(statuses.map((s) => s.id), statuses)) {
+        stopPolling();
       }
-    } finally {
-      setVerifying([]);
-    }
+    } catch { /* non-fatal */ }
+  };
+
+  const startPolling = (ids: number[]) => {
+    setVerifyingIds((prev) => new Set([...prev, ...ids]));
+    if (pollRef.current) return;
+    pollRef.current = setInterval(pollVerification, 2000);
+    pollVerification();
+  };
+
+  const stopPolling = () => {
+    if (pollRef.current) { clearInterval(pollRef.current); pollRef.current = null; }
+    setVerifyingIds(new Set());
   };
 
   const handleUpdate = async () => {
@@ -133,37 +90,28 @@ export function Dashboard({ onLogout }: { onLogout: () => void }) {
       const res = await api.triggerUpdate();
       alert(res.message);
       setUpdateInfo(null);
-    } catch (e: any) {
-      setErr(e.message);
-    } finally {
-      setUpdating(false);
-    }
+    } catch (e: any) { setErr(e.message); }
+    finally { setUpdating(false); }
   };
 
   useEffect(() => {
-    if (cachedRules.current.length > 0) {
-      setRules(cachedRules.current);
-    }
-    load();
-    loadLsStatus();
-    refreshStatuses();
-    const poll = setInterval(refreshStatuses, 15000);
-    cleanup.current = () => clearInterval(poll);
-    // Checked once on load instead of behind a button: the banner below is the
-    // only thing that ever used the result.
+    if (cachedRules.current.length > 0) setRules(cachedRules.current);
+    load(); loadLsStatus();
     api.checkUpdate().then(setUpdateInfo).catch(() => {});
-    return () => cleanup.current?.();
+    return () => {
+      if (deleteTimeoutRef.current) { clearTimeout(deleteTimeoutRef.current); deleteTimeoutRef.current = null; }
+      if (pollRef.current) { clearInterval(pollRef.current); pollRef.current = null; }
+    };
   }, []);
 
   const handleToggle = async (rule: Rule) => {
-    const prev = rules;
-    setRules(rules.map((r) => (r.id === rule.id ? { ...r, enabled: !rule.enabled } : r)));
+    setRules((prev) => prev.map((r) => (r.id === rule.id ? { ...r, enabled: !r.enabled } : r)));
     setRuleErrors((p) => ({ ...p, [rule.id]: "" }));
     try {
       const updated = await api.toggleRule(rule.id);
-      setRules(rules.map((r) => (r.id === updated.id ? updated : r)));
+      setRules((prev) => prev.map((r) => (r.id === updated.id ? updated : r)));
     } catch (e: any) {
-      setRules(prev.map((r) => (r.id === rule.id ? { ...r, enabled: rule.enabled } : r)));
+      setRules((prev) => prev.map((r) => (r.id === rule.id ? { ...r, enabled: rule.enabled } : r)));
       setRuleErrors((p) => ({ ...p, [rule.id]: e.message }));
     }
   };
@@ -172,252 +120,267 @@ export function Dashboard({ onLogout }: { onLogout: () => void }) {
     if (confirmDeleteId !== rule.id) {
       setConfirmDeleteId(rule.id);
       if (deleteTimeoutRef.current) clearTimeout(deleteTimeoutRef.current);
-      deleteTimeoutRef.current = setTimeout(() => {
-        setConfirmDeleteId(null);
-        deleteTimeoutRef.current = null;
-      }, 3000);
+      deleteTimeoutRef.current = setTimeout(() => { setConfirmDeleteId(null); deleteTimeoutRef.current = null; }, 3000);
       return;
     }
     setConfirmDeleteId(null);
-    if (deleteTimeoutRef.current) {
-      clearTimeout(deleteTimeoutRef.current);
-      deleteTimeoutRef.current = null;
-    }
-    removeRule(rule);
-  };
-
-  const removeRule = (rule: Rule) => {
-    const prev = rules;
-    setRules(rules.filter((r) => r.id !== rule.id));
+    if (deleteTimeoutRef.current) { clearTimeout(deleteTimeoutRef.current); deleteTimeoutRef.current = null; }
+    setRules((prev) => prev.filter((r) => r.id !== rule.id));
     setRuleErrors((p) => ({ ...p, [rule.id]: "" }));
     api.deleteRule(rule.id).catch((e: any) => {
-      setRules(prev);
+      setRules((prev) => prev.some((r) => r.id === rule.id) ? prev : [...prev, rule]);
       setRuleErrors((p) => ({ ...p, [rule.id]: e.message }));
     });
   };
 
-  const logout = () => {
-    clearToken();
-    onLogout();
+  const handleOpenFirewall = async (ruleId: number) => {
+    try {
+      const updated = await api.openFirewall(ruleId);
+      setRuleStatuses((prev) => prev.map((s) => (s.id === ruleId ? updated : s)));
+    } catch (e: any) { setRuleErrors((p) => ({ ...p, [ruleId]: e.message })); }
   };
 
-  const aws = awsBadge(lsStatus);
+  const handleCredSubmit = async (e: React.FormEvent) => {
+    e.preventDefault();
+    setCredBusy(true); setCredErr(null);
+    try {
+      const result = await api.saveCredentials({ instance: credInstance, region: credRegion, access_key_id: credAccessKey, secret_access_key: credSecretKey });
+      setLsStatus(result);
+      setCredOpen(false);
+    } catch (e: any) { setCredErr(e.message); }
+    finally { setCredBusy(false); }
+  };
+
+  const logout = () => { clearToken(); onLogout(); };
   const onlinePeers = netInfo?.peers.filter((p) => p.online) || [];
   const canAddRule = onlinePeers.length > 0;
+  const aws = awsBadge(lsStatus);
 
   return (
-    // Transparent so the background loop reads through; the masthead and cards are
-    // the only opaque surfaces, and the blue footer still anchors the bottom.
-    <div className="min-h-screen flex flex-col">
-      {/* Translucent Console Black: keeps the masthead reading as a solid bar while
-          letting the background through. It never inverts at any scroll position. */}
-      <header className="bg-black/70">
-        <div className="mx-auto w-full max-w-[1280px] px-4 md:px-12 py-6 flex items-center justify-between gap-4">
+    <div className="min-h-screen animate-page-in">
+      <header className="border-b border-border">
+        <div className="max-w-4xl mx-auto px-6 py-3 flex items-center justify-between">
           <div>
-            <h1 className="display text-[28px] md:text-[35px] text-white tracking-[0.1px]">Port forwards</h1>
-            <p className="text-[14px] text-white/60 mt-1">iptables DNAT rules on this host</p>
+            <h1 className="text-lg font-display font-semibold tracking-tight">Port Forwards</h1>
+            <p className="text-xs text-muted-foreground">iptables DNAT rules</p>
           </div>
           <div className="flex items-center gap-2">
-            <Dialog open={awsOpen} onOpenChange={setAwsOpen}>
-              {/* One pill, both states. It becomes a button only when clicking it
-                  can actually fix something, so a healthy connection is inert. */}
-              {aws.actionable ? (
-                <DialogTrigger asChild>
-                  <button
-                    type="button"
-                    className="inline-flex items-center gap-2 bg-white/10 hover:bg-white/20 transition-colors text-white text-[14px] font-medium px-4 py-2 rounded-full"
-                    title={aws.title}
-                  >
-                    <span className="w-2 h-2 rounded-full bg-destructive" />
-                    {aws.text}
-                  </button>
-                </DialogTrigger>
-              ) : (
-                <span
-                  className="hidden sm:inline-flex items-center gap-2 bg-white/10 text-white text-[14px] font-medium px-4 py-2 rounded-full"
-                  title={aws.title}
-                >
-                  <span
-                    className={`w-2 h-2 rounded-full ${aws.tone === "good" ? "bg-success" : "bg-muted-foreground"}`}
-                  />
-                  {aws.text}
-                </span>
-              )}
-              <AwsCredentialsDialog
-                current={lsStatus}
-                onSaved={(st) => {
-                  setLsStatus(st);
-                  setAwsOpen(false);
-                  refreshStatuses();
-                }}
-              />
-            </Dialog>
-            <Button variant="ghost" size="icon" onClick={load} title="Refresh" aria-label="Refresh">
-              <RefreshIcon />
-            </Button>
-            <Button variant="ghost" size="icon" onClick={logout} title="Sign out" aria-label="Sign out">
-              <LogoutIcon />
-            </Button>
+            <button
+              onClick={() => aws.actionable && setCredOpen(true)}
+              className={`text-[10px] px-2 py-0.5 rounded-full flex items-center gap-1 transition-colors duration-fast ease-anthropic-out ${
+                aws.tone === "good" ? "bg-success/15 text-success" : aws.tone === "bad" ? "bg-destructive/15 text-destructive" : "bg-secondary text-muted-foreground"
+              } ${aws.actionable ? "cursor-pointer hover:opacity-80" : ""}`}
+              title={aws.title}
+            >
+              <span className={`w-1.5 h-1.5 rounded-full inline-block ${aws.tone === "good" ? "bg-success" : aws.tone === "bad" ? "bg-destructive" : "bg-muted-foreground"}`} />
+              AWS
+            </button>
+            <Button variant="ghost" size="icon" onClick={load} title="Refresh" className="text-muted-foreground hover:text-foreground">\u21BB</Button>
+
+            <Button variant="ghost" size="icon" onClick={logout} title="Sign out" className="text-muted-foreground hover:text-foreground">\u2192</Button>
           </div>
         </div>
       </header>
 
-      {/* Gallery pace: each module gets its own room. */}
-      <main className="flex-1">
-        <div className="mx-auto w-full max-w-[1280px] px-4 md:px-12 py-12 md:py-16 space-y-12">
-          {err && <Card className="p-6 text-[16px] text-destructive">{err}</Card>}
-
-          {updateInfo?.update_available && (
-            <Card className="p-8 flex flex-wrap items-center justify-between gap-6">
-              <div>
-                <p className="display text-[22px]">Update available</p>
-                <p className="text-[14px] text-muted-foreground mt-1">
-                  v{updateInfo.current} &rarr; v{updateInfo.latest}
-                </p>
-              </div>
-              <Button onClick={handleUpdate} disabled={updating}>
-                {updating ? "Updating…" : "Update"}
-              </Button>
-            </Card>
-          )}
-
-          {netInfo && <NetworkInfoCard info={netInfo} />}
-
-          <section className="space-y-6">
-            <div className="flex flex-wrap items-end justify-between gap-6">
-              <div>
-                <h2 className="display text-[28px]">Active forwards</h2>
-                <p className="text-[14px] text-muted-foreground mt-1">
-                  {rules.length} rule{rules.length !== 1 ? "s" : ""}
-                </p>
-              </div>
-              <Dialog open={addOpen} onOpenChange={setAddOpen}>
-                <DialogTrigger asChild>
-                  <Button disabled={!canAddRule}>Add forward</Button>
-                </DialogTrigger>
-                {netInfo && (
-                  <AddRuleDialog
-                    peers={onlinePeers}
-                    onCreated={(created, allSucceeded) => {
-                      if (created.length) {
-                        setRules((rs) => [...rs, ...created]);
-                        verifyOpen(created.map((r) => r.id));
-                      }
-                      if (allSucceeded) setAddOpen(false);
-                    }}
-                  />
-                )}
-              </Dialog>
+      <main className="max-w-4xl mx-auto px-6 py-6 space-y-4">
+        {err && <p className="text-xs text-destructive">{err}</p>}
+        {updateInfo?.update_available && (
+          <Card className="p-4 flex items-center justify-between border-primary/30">
+            <div className="flex items-center gap-3">
+              <span className="text-sm font-medium">Update available</span>
+              <span className="text-xs text-muted-foreground font-mono">v{updateInfo.current} \u2192 v{updateInfo.latest}</span>
             </div>
+            <Button size="sm" onClick={handleUpdate} disabled={updating}>{updating ? "Updating\u2026" : "Update"}</Button>
+          </Card>
+        )}
+        {netInfo && <NetworkInfoCard info={netInfo} />}
 
-            {!canAddRule && netInfo && (
-              <Card className="p-6 text-[16px] text-muted-foreground">
-                {netInfo.tag_filter
-                  ? `No online Tailscale peers with tag "${netInfo.tag_filter}" found.`
-                  : "No online Tailscale peers detected. Connect the destination machine to the same tailnet."}
-              </Card>
+        <div className="flex items-center justify-between">
+          <div>
+            <h2 className="text-sm font-display font-semibold tracking-tight">Active forwards</h2>
+            <p className="text-xs text-muted-foreground">{rules.length} rule{rules.length !== 1 ? "s" : ""}</p>
+          </div>
+          <Dialog open={addOpen} onOpenChange={setAddOpen}>
+            <DialogTrigger asChild>
+              <Button disabled={!canAddRule}>+ Add forward</Button>
+            </DialogTrigger>
+            {netInfo && (
+              <AddRuleDialog
+                peers={onlinePeers}
+                onCreated={(created, allSucceeded) => {
+                  if (created.length) { setRules((rs) => [...rs, ...created]); startPolling(created.map((r) => r.id)); }
+                  if (allSucceeded) setAddOpen(false);
+                }}
+              />
             )}
-
-            {loading && cachedRules.current.length === 0 ? (
-              <Card className="p-12 text-center text-[16px] text-muted-foreground">Loading&hellip;</Card>
-            ) : rules.length === 0 ? (
-              <Card className="p-12 text-center">
-                <p className="display text-[22px]">No forwards yet</p>
-                <p className="text-[16px] text-muted-foreground mt-2">
-                  {canAddRule ? "Add one to route a public port to a peer." : "Connect a Tailscale peer first."}
-                </p>
-              </Card>
-            ) : (
-              <div className="space-y-4">
-                {rules.map((rule) => (
-                  <RuleRow
-                    key={rule.id}
-                    rule={rule}
-                    publicIp={netInfo?.self_public_ip}
-                    onToggle={() => handleToggle(rule)}
-                    onDelete={() => handleDelete(rule)}
-                    onFix={() => setFixRule(rule)}
-                    isDeleteConfirm={confirmDeleteId === rule.id}
-                    error={ruleErrors[rule.id]}
-                    status={statuses[rule.id]}
-                    verifying={verifying.includes(rule.id)}
-                  />
-                ))}
-              </div>
-            )}
-          </section>
+          </Dialog>
         </div>
+
+        {!canAddRule && netInfo && (
+          <Card className="p-3 text-xs text-muted-foreground">
+            {netInfo.tag_filter ? `No online Tailscale peers with tag "${netInfo.tag_filter}" found.` : "No online Tailscale peers detected."}
+          </Card>
+        )}
+
+        {loading && cachedRules.current.length === 0 ? (
+          <Card className="p-8 flex flex-col items-center gap-3">
+            <div className="w-5 h-5 rounded-full border-2 border-muted border-t-primary animate-spin" />
+            <span className="text-xs text-muted-foreground">Loading\u2026</span>
+          </Card>
+        ) : rules.length === 0 ? (
+          <Card className="p-5 text-center">
+            <p className="text-xs text-muted-foreground">No forwards yet.</p>
+            <p className="text-xs text-muted-foreground mt-1">{canAddRule ? "Click '+ Add forward' to create one." : ""}</p>
+          </Card>
+        ) : (
+          <div className="space-y-1">
+            {rules.map((rule, i) => (
+              <RuleRow
+                key={rule.id}
+                rule={rule}
+                index={i}
+                publicIp={netInfo?.self_public_ip}
+                status={ruleStatuses.find((s) => s.id === rule.id)}
+                verifying={verifyingIds.has(rule.id)}
+                onToggle={() => handleToggle(rule)}
+                onDelete={() => handleDelete(rule)}
+                onOpenFirewall={() => handleOpenFirewall(rule.id)}
+                isDeleteConfirm={confirmDeleteId === rule.id}
+                error={ruleErrors[rule.id]}
+              />
+            ))}
+          </div>
+        )}
       </main>
 
-      {/* Driven by fixRule rather than living inside the row: the row unmounts on
-          delete, and a dialog that unmounts itself mid-action cannot report back. */}
-      <Dialog open={fixRule !== null} onOpenChange={(o: boolean) => !o && setFixRule(null)}>
-        {fixRule && (
-          <FirewallDialog
-            rule={fixRule}
-            status={statuses[fixRule.id]}
-            onOpened={(st) => {
-              setStatuses((prev) => ({ ...prev, [st.id]: st }));
-              setFixRule(null);
-              if (st.firewall !== "open") verifyOpen([st.id]);
-            }}
-            onDelete={() => {
-              removeRule(fixRule);
-              setFixRule(null);
-            }}
-          />
-        )}
-      </Dialog>
-
-      {/* PlayStation Blue anchors the bottom of the channel. */}
-      <footer className="bg-primary text-white">
-        {/* Micro Caption (12px / 500) is the system's footer microcopy tier. */}
-        <div className="mx-auto w-full max-w-[1280px] px-4 md:px-12 py-3 flex items-center justify-between gap-4">
-          <span className="text-[12px] font-medium">Port Forward Dashboard</span>
-          <span className="text-[12px] font-medium text-white/70">v{updateInfo?.current || "?"}</span>
+      <footer className="bg-primary text-primary-foreground">
+        <div className="max-w-4xl mx-auto px-6 py-2 flex items-center justify-between text-xs font-mono">
+          <span>Port Forward Dashboard</span>
+          <span className="opacity-70">v{updateInfo?.current || "?"}</span>
         </div>
       </footer>
+
+      {/* AWS credentials dialog */}
+      <Dialog open={credOpen} onOpenChange={setCredOpen}>
+        <DialogTrigger asChild><span /></DialogTrigger>
+        <DialogContent className="p-0">
+          <DialogHeader className="p-6 pb-0"><DialogTitle>AWS Credentials</DialogTitle></DialogHeader>
+          <form onSubmit={handleCredSubmit} className="space-y-4 p-6">
+            <div>
+              <label className="text-xs text-muted-foreground mb-1.5 block">Instance name</label>
+              <Input name="instance" placeholder="my-instance" value={credInstance} onChange={(e: any) => setCredInstance(e.target.value)} required />
+            </div>
+            <div>
+              <label className="text-xs text-muted-foreground mb-1.5 block">Region</label>
+              <Input name="region" placeholder="ap-south-1" value={credRegion} onChange={(e: any) => setCredRegion(e.target.value)} required />
+            </div>
+            <div>
+              <label className="text-xs text-muted-foreground mb-1.5 block">Access key ID</label>
+              <Input name="access_key_id" placeholder="AKIA..." value={credAccessKey} onChange={(e: any) => setCredAccessKey(e.target.value)} required />
+            </div>
+            <div>
+              <label className="text-xs text-muted-foreground mb-1.5 block">Secret access key</label>
+              <Input type="password" name="secret_access_key" placeholder="Secret" value={credSecretKey} onChange={(e: any) => setCredSecretKey(e.target.value)} required />
+            </div>
+            {credErr && <p className="text-xs text-destructive">{credErr}</p>}
+            <DialogFooter className="pt-2">
+              <Button type="submit" disabled={credBusy}>{credBusy ? "Saving\u2026" : "Save"}</Button>
+            </DialogFooter>
+          </form>
+        </DialogContent>
+      </Dialog>
     </div>
   );
 }
 
+// ===== Exported helpers (tested by checks.tsx) =====
+
+export async function createForProtocols(
+  protocol: "tcp" | "udp" | "both",
+  base: Omit<RuleInput, "protocol">,
+  create: (r: RuleInput) => Promise<Rule>
+): Promise<{ created: Rule[]; error: string | null }> {
+  const protos: ("tcp" | "udp")[] = protocol === "both" ? ["tcp", "udp"] : [protocol];
+  const created: Rule[] = [];
+  for (const p of protos) {
+    try {
+      created.push(await create({ ...base, protocol: p }));
+    } catch (e: any) {
+      const done = created.map((r) => r.protocol.toUpperCase()).join(" + ");
+      return { created, error: done ? `${done} rule created, but ${p.toUpperCase()} failed: ${e.message}` : e.message };
+    }
+  }
+  return { created, error: null };
+}
+
+export type Badge = { text: string; tone: "good" | "bad" | "warn" | "idle"; actionable: boolean; title: string };
+
+export function badgeFor(status: RuleStatus | undefined, enabled: boolean, verifying: boolean): Badge {
+  const idle: Badge = { text: "", tone: "idle", actionable: false, title: "" };
+  if (verifying) return { ...idle, text: "Verifying\u2026", tone: "warn" };
+  if (!enabled) return { ...idle, text: "Disabled", tone: "idle" };
+  if (!status) return { ...idle, text: "Checking\u2026", tone: "warn" };
+  // Firewall is checked first — a blocked port makes the backend irrelevant.
+  if (status.firewall === "closed") return { text: "Blocked in AWS", tone: "bad", actionable: true, title: status.firewall_detail };
+  if (status.firewall === "unconfigured") return { text: "AWS unverified", tone: "warn", actionable: false, title: status.firewall_detail };
+  // Connectable means firewall is open AND backend responded — the best state.
+  if (status.connectable) return { text: "Open & connectable", tone: "good", actionable: false, title: status.firewall_detail };
+  // Firewall is open but backend issues remain.
+  if (status.backend === "refused") return { text: "Nothing listening", tone: "bad", actionable: false, title: status.backend_detail };
+  if (status.backend === "timeout") return { text: "Destination unreachable", tone: "bad", actionable: false, title: status.backend_detail };
+  return { text: "Port open, backend unverified", tone: "warn", actionable: false, title: status.backend_detail };
+}
+
+export function verificationSettled(ruleIds: number[], statuses: RuleStatus[]): boolean {
+  const byId = new Map(statuses.map((s) => [s.id, s]));
+  return ruleIds.every((id) => {
+    const s = byId.get(id);
+    if (!s) return false;
+    // Only "open" and "unconfigured" are final answers. "closed" means AWS
+    // blocked the port (we can fix that), and anything else is still pending.
+    return s.firewall === "open" || s.firewall === "unconfigured";
+  });
+}
+
+export function awsBadge(status: LightsailStatus | null): Badge {
+  const idle: Badge = { text: "AWS", tone: "idle", actionable: false, title: "" };
+  if (!status) return idle;
+  if (status.configured) return { text: "AWS", tone: "good", actionable: false, title: `Connected to ${status.instance} (${status.region})` };
+  if (status.needs_credentials) return { text: "AWS", tone: "bad", actionable: true, title: status.reason };
+  return { ...idle, tone: "bad", title: status.reason };
+}
+
+// ===== Internal components =====
+
 function NetworkInfoCard({ info }: { info: NetworkInfo }) {
   return (
-    <Card className="p-8">
-      <div className="grid grid-cols-1 md:grid-cols-3 gap-8">
+    <Card className="p-4">
+      <div className="grid grid-cols-1 md:grid-cols-3 gap-3 text-xs">
         <div>
-          <div className="text-[14px] text-muted-foreground">This host</div>
-          <div className="text-[18px] mt-1 truncate">{info.self_hostname}</div>
+          <span className="text-muted-foreground uppercase tracking-wider text-[10px]">Host</span>
+          <div className="mt-1 truncate font-medium">{info.self_hostname}</div>
         </div>
         <div>
-          <div className="text-[14px] text-muted-foreground">Public IP</div>
-          <div className="text-[18px] mt-1 truncate">{info.self_public_ip || "—"}</div>
+          <span className="text-muted-foreground uppercase tracking-wider text-[10px]">Public IP</span>
+          <div className="mt-1 truncate font-mono text-[11px]">{info.self_public_ip || "\u2014"}</div>
         </div>
         <div>
-          <div className="text-[14px] text-muted-foreground">Tailscale IP</div>
-          <div className="text-[18px] mt-1 truncate">{info.self_tailscale_ip || "—"}</div>
+          <span className="text-muted-foreground uppercase tracking-wider text-[10px]">Tailscale IP</span>
+          <div className="mt-1 truncate font-mono text-[11px]">{info.self_tailscale_ip || "\u2014"}</div>
         </div>
       </div>
       {info.peers.length > 0 && (
-        <div className="mt-8 pt-8 border-t border-border">
-          <div className="text-[14px] text-muted-foreground mb-4">
-            Tailscale peers ({info.peers.filter((p) => p.online).length} online)
+        <div className="mt-3 pt-3 border-t border-border">
+          <div className="text-[10px] text-muted-foreground uppercase tracking-wider mb-1.5">
+            Peers ({info.peers.filter((p) => p.online).length} online)
           </div>
-          <div className="flex flex-wrap gap-3">
+          <div className="flex flex-wrap gap-1.5">
             {info.peers.map((p) => (
-              <div
-                key={p.hostname}
-                className="inline-flex items-center gap-2 px-4 py-2 rounded-full bg-secondary text-[14px]"
-              >
-                {/* Blue for online, Body Gray for offline — this system has no green. */}
-                <span className={`w-2 h-2 rounded-full ${p.online ? "bg-primary" : "bg-[#6b6b6b]"}`} />
+              <div key={p.hostname} className="inline-flex items-center gap-1.5 px-2 py-1 rounded-md bg-secondary text-secondary-foreground text-[11px] transition-colors duration-fast ease-anthropic-out hover:bg-secondary/80">
+                <span className={`w-2 h-2 rounded-full inline-block transition-colors duration-slow ${p.online ? "bg-success" : "bg-muted-foreground"}`} />
                 <span className="font-medium">{p.hostname}</span>
-                <span className="text-muted-foreground">{p.ip}</span>
-                {p.tags.map((t) => (
-                  <span key={t} className="px-2 py-0.5 rounded-3xl bg-background text-muted-foreground text-[12px] font-medium">
-                    {t}
-                  </span>
-                ))}
+                <span className="text-muted-foreground font-mono text-[10px]">{p.ip}</span>
+                {p.tags.map((t) => (<span key={t} className="px-1.5 rounded-full bg-muted text-muted-foreground text-[9px]">{t}</span>))}
               </div>
             ))}
           </div>
@@ -427,195 +390,57 @@ function NetworkInfoCard({ info }: { info: NetworkInfo }) {
   );
 }
 
-function RuleRow({
-  rule,
-  publicIp,
-  onToggle,
-  onDelete,
-  onFix,
-  isDeleteConfirm,
-  error,
-  status,
-  verifying,
-}: {
-  rule: Rule;
-  publicIp: string | null | undefined;
-  onToggle: () => void;
-  onDelete: () => void;
-  onFix: () => void;
-  isDeleteConfirm: boolean;
-  error?: string;
-  status?: RuleStatus;
-  verifying: boolean;
+const toneClasses: Record<string, string> = {
+  good: "bg-success/15 text-success",
+  bad: "bg-destructive/15 text-destructive",
+  warn: "bg-secondary text-muted-foreground",
+  idle: "bg-secondary text-muted-foreground",
+};
+
+function RuleRow({ rule, index, publicIp, status, verifying, onToggle, onDelete, onOpenFirewall, isDeleteConfirm, error }: {
+  rule: Rule; index: number; publicIp: string | null | undefined; status: RuleStatus | undefined; verifying: boolean;
+  onToggle: () => void; onDelete: () => void; onOpenFirewall: () => void; isDeleteConfirm: boolean; error?: string;
 }) {
   const badge = badgeFor(status, rule.enabled, verifying);
+  const animatedRef = useRef(false);
+  const [shouldAnimate, setShouldAnimate] = useState(false);
+  useEffect(() => {
+    if (!animatedRef.current) {
+      animatedRef.current = true;
+      setShouldAnimate(true);
+    }
+  }, []);
   return (
-    <div>
-      <Card
-        className={`p-6 flex items-center gap-6 shadow-ps-2 ${
-          isDeleteConfirm ? "shadow-ps-3 ring-2 ring-destructive" : ""
-        }`}
-      >
+    <div className={shouldAnimate ? "animate-row-in" : ""} style={shouldAnimate ? { animationDelay: `${index * 40}ms` } : undefined}>
+      <Card hoverable className={`p-3 flex items-center gap-3 ${isDeleteConfirm ? "border-destructive/40" : ""}`}>
         <Switch checked={rule.enabled} onCheckedChange={onToggle} />
         <div className="flex-1 min-w-0">
-          <div className="flex items-center gap-3">
-            <span className="text-[18px] font-medium truncate">{rule.label}</span>
-            <span className="text-[12px] font-bold px-2 py-1 rounded-3xl bg-secondary text-muted-foreground">
-              {rule.protocol === "tcp" ? "TCP" : "UDP"}
-            </span>
-            {badge.actionable ? (
-              <button
-                type="button"
-                onClick={onFix}
-                className={`text-[12px] font-bold px-2 py-1 rounded-3xl hover:opacity-80 transition-opacity ${BADGE_TONE[badge.tone]}`}
-                title={badge.title}
-              >
-                {badge.text}
-              </button>
-            ) : (
-              <span
-                className={`text-[12px] font-bold px-2 py-1 rounded-3xl ${BADGE_TONE[badge.tone]}`}
-                title={badge.title}
-              >
-                {badge.text}
-              </span>
+          <div className="flex items-center gap-2">
+            <span className="font-medium truncate text-sm">{rule.label}</span>
+            <span className="text-[9px] px-1.5 py-0.5 rounded-full bg-secondary text-secondary-foreground uppercase font-mono tracking-wider transition-colors duration-fast ease-anthropic-out">{rule.protocol}</span>
+            {badge.text && (
+              <button onClick={badge.actionable ? onOpenFirewall : undefined}
+                className={`text-[9px] px-1.5 py-0.5 rounded-full font-medium transition-colors duration-fast ease-anthropic-out ${toneClasses[badge.tone]} ${badge.actionable ? "cursor-pointer hover:opacity-80" : ""}`}
+                title={badge.title}>{badge.text}</button>
             )}
           </div>
-          <div className="flex flex-wrap items-center gap-2 text-[14px] text-muted-foreground mt-1">
-            <span>
-              {publicIp || "<this-host>"}:{rule.public_port}
-            </span>
-            <span>&rarr;</span>
-            <span>
-              {rule.dest_hostname}:{rule.dest_port}
-            </span>
-            <span className="text-[12px]">({rule.dest_ip})</span>
+          <div className="flex items-center gap-1.5 text-[11px] text-muted-foreground mt-1 font-mono">
+            <span>{publicIp || "<this-host>"}:{rule.public_port}</span>
+            <span className="text-primary transition-opacity duration-fast">\u2192</span>
+            <span>{rule.dest_hostname}:{rule.dest_port}</span>
+            <span className="text-[9px] opacity-60">({rule.dest_ip})</span>
           </div>
         </div>
-        <Button
-          variant={isDeleteConfirm ? "destructive" : "secondary"}
-          size="icon"
-          onClick={onDelete}
-          title={isDeleteConfirm ? "Confirm delete" : "Delete forward"}
-        >
-          {isDeleteConfirm ? "✓" : "✕"}
+        <Button variant={isDeleteConfirm ? "destructive" : "ghost"} size="icon" onClick={onDelete}>
+          {isDeleteConfirm ? "\u2713" : "\u2715"}
         </Button>
       </Card>
-      {error && <p className="text-[14px] text-destructive mt-2 ml-1">{error}</p>}
-      {!error && status && !status.connectable && rule.enabled && !verifying && (
-        <p className="text-[14px] text-muted-foreground mt-2 ml-1">
-          {status.firewall === "open" ? status.backend_detail : status.firewall_detail}
-        </p>
-      )}
+      {error && <p className="text-[10px] text-destructive mt-1 ml-1 font-medium">{error}</p>}
     </div>
   );
 }
 
-// The header's AWS pill. "actionable" is the whole point: we only invite the
-// user into the credentials form when credentials are what is actually missing.
-export function awsBadge(status: LightsailStatus | null): {
-  text: string;
-  tone: "good" | "bad" | "idle";
-  title: string;
-  actionable: boolean;
-} {
-  if (!status)
-    return { text: "AWS", tone: "idle", title: "Checking the AWS connection…", actionable: false };
-  if (status.configured)
-    return {
-      text: "AWS connected",
-      tone: "good",
-      title: `Lightsail ${status.instance} in ${status.region}`,
-      actionable: false,
-    };
-  return {
-    text: "AWS not connected",
-    tone: "bad",
-    title: `${status.reason} — click to add credentials`,
-    actionable: status.needs_credentials,
-  };
-}
-
-export const VERIFY_INTERVAL_MS = 2000;
-export const VERIFY_ATTEMPTS = 15; // ~30s, comfortably past AWS's apply delay
-
-// Stop polling once AWS has answered for every new rule. "unconfigured" is a
-// permanent answer (no creds), not a pending one, so waiting longer is pointless.
-export function verificationSettled(ids: number[], list: RuleStatus[]): boolean {
-  const mine = list.filter((st) => ids.includes(st.id));
-  return (
-    mine.length === ids.length &&
-    mine.every((st) => st.firewall === "open" || st.firewall === "unconfigured")
-  );
-}
-
-// One badge, one message: name the half that is broken. Order matters -- the
-// firewall is checked first because a blocked port makes the backend irrelevant.
-export function badgeFor(
-  status: RuleStatus | undefined,
-  enabled: boolean,
-  verifying: boolean
-): { text: string; tone: "good" | "bad" | "warn" | "idle"; title: string; actionable?: boolean } {
-  if (verifying) return { text: "Verifying…", tone: "idle", title: "Waiting for AWS to report the port open" };
-  if (!enabled) return { text: "Disabled", tone: "idle", title: "Rule is switched off" };
-  if (!status) return { text: "Checking…", tone: "idle", title: "Fetching status" };
-  if (status.connectable) return { text: "Open & connectable", tone: "good", title: status.firewall_detail };
-  // The only badge with a fix behind it: we hold the AWS permission to open this.
-  if (status.firewall === "closed")
-    return {
-      text: "Blocked in AWS",
-      tone: "bad",
-      title: `${status.firewall_detail} — click to open it`,
-      actionable: true,
-    };
-  if (status.firewall === "unconfigured")
-    return { text: "AWS unverified", tone: "warn", title: status.firewall_detail };
-  if (status.backend === "refused")
-    return { text: "Nothing listening", tone: "bad", title: status.backend_detail };
-  if (status.backend === "timeout")
-    return { text: "Destination unreachable", tone: "bad", title: status.backend_detail };
-  return { text: "Port open, backend unverified", tone: "warn", title: status.backend_detail };
-}
-
-const BADGE_TONE: Record<string, string> = {
-  good: "bg-accent text-black",
-  bad: "bg-destructive text-white",
-  warn: "bg-secondary text-foreground",
-  idle: "bg-secondary text-muted-foreground",
-};
-
-// "both" means one rule per protocol. Sequential on purpose: each create shells out
-// to iptables and writes SQLite, and a half-succeeded run must keep the rule that landed.
-export async function createForProtocols(
-  protocol: "tcp" | "udp" | "both",
-  base: Omit<RuleInput, "protocol">,
-  create: (r: RuleInput) => Promise<Rule>
-): Promise<{ created: Rule[]; error: string | null }> {
-  const protocols: ("tcp" | "udp")[] = protocol === "both" ? ["tcp", "udp"] : [protocol];
-  const created: Rule[] = [];
-  for (const proto of protocols) {
-    try {
-      created.push(await create({ ...base, protocol: proto }));
-    } catch (e: any) {
-      const done = created.map((r) => r.protocol.toUpperCase()).join(" + ");
-      return {
-        created,
-        error: done
-          ? `${done} rule created, but ${proto.toUpperCase()} failed: ${e.message}`
-          : e.message,
-      };
-    }
-  }
-  return { created, error: null };
-}
-
-function AddRuleDialog({
-  peers,
-  onCreated,
-}: {
-  peers: Peer[];
-  onCreated: (created: Rule[], allSucceeded: boolean) => void;
-}) {
+function AddRuleDialog({ peers, onCreated }: { peers: Peer[]; onCreated: (created: Rule[], allSucceeded: boolean) => void }) {
   const [label, setLabel] = useState("");
   const [publicPort, setPublicPort] = useState("");
   const [destHostname, setDestHostname] = useState(peers[0]?.hostname || "");
@@ -625,280 +450,55 @@ function AddRuleDialog({
   const [busy, setBusy] = useState(false);
 
   const submit = async (e: React.FormEvent) => {
-    e.preventDefault();
-    setErr(null);
-    setBusy(true);
-    const { created, error } = await createForProtocols(
-      protocol,
-      {
-        label,
-        public_port: parseInt(publicPort),
-        dest_hostname: destHostname,
-        dest_port: parseInt(destPort),
-        enabled: true,
-      },
-      api.createRule
-    );
-    setErr(error);
-    onCreated(created, error === null);
+    e.preventDefault(); setErr(null); setBusy(true);
+    const { created, error } = await createForProtocols(protocol, {
+      label, public_port: parseInt(publicPort), dest_hostname: destHostname, dest_port: parseInt(destPort), enabled: true,
+    }, api.createRule);
+    if (error && created.length === 0) setErr(error);
+    else if (error) { setErr(error); onCreated(created, false); }
+    else onCreated(created, true);
     setBusy(false);
   };
 
   return (
-    <DialogContent className="w-full">
-      <DialogHeader>
-        <DialogTitle>New port forward</DialogTitle>
-        <p className="text-[14px] text-muted-foreground">
-          Route a public port on this host to a machine on your tailnet.
-        </p>
-      </DialogHeader>
-      <form onSubmit={submit} className="space-y-5 mt-6 px-8">
+    <DialogContent className="p-0">
+      <DialogHeader className="p-6 pb-0"><DialogTitle>New port forward</DialogTitle></DialogHeader>
+      <form onSubmit={submit} className="space-y-4 p-6">
         <div>
-          <label className={FIELD_LABEL_CLASS}>Label</label>
-          <Input
-            placeholder="Minecraft server"
-            value={label}
-            onChange={(e: any) => setLabel(e.target.value)}
-            required
-            autoFocus
-          />
+          <label className="text-xs text-muted-foreground mb-1.5 block">Label</label>
+          <Input name="label" placeholder="Minecraft server" value={label} onChange={(e: any) => setLabel(e.target.value)} required autoFocus />
         </div>
         <div>
-          <label className={FIELD_LABEL_CLASS}>Destination machine</label>
-          <select
-            value={destHostname}
-            onChange={(e: any) => setDestHostname(e.target.value)}
-            className={SELECT_CLASS}
-            required
-          >
-            {peers.map((p) => (
-              <option key={p.hostname} value={p.hostname}>
-                {p.hostname} ({p.ip})
-              </option>
-            ))}
+          <label className="text-xs text-muted-foreground mb-1.5 block">Destination machine</label>
+          <select name="dest_hostname" value={destHostname} onChange={(e: any) => setDestHostname(e.target.value)}
+            className="flex h-10 w-full rounded-md border border-input bg-background px-3.5 py-2 text-sm focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2 focus-visible:ring-offset-background transition-colors duration-fast ease-anthropic-out" required>
+            {peers.map((p) => (<option key={p.hostname} value={p.hostname}>{p.hostname} ({p.ip})</option>))}
           </select>
         </div>
-        <div className="grid grid-cols-2 gap-4">
+        <div className="grid grid-cols-2 gap-3">
           <div>
-            <label className={FIELD_LABEL_CLASS}>Public port</label>
-            <Input
-              type="number"
-              placeholder="25565"
-              value={publicPort}
-              onChange={(e: any) => setPublicPort(e.target.value)}
-              required
-              min={1}
-              max={65535}
-            />
+            <label className="text-xs text-muted-foreground mb-1.5 block">Public port</label>
+            <Input type="number" name="public_port" placeholder="25565" value={publicPort} onChange={(e: any) => setPublicPort(e.target.value)} required min={1} max={65535} />
           </div>
           <div>
-            <label className={FIELD_LABEL_CLASS}>Internal port</label>
-            <Input
-              type="number"
-              placeholder="9015"
-              value={destPort}
-              onChange={(e: any) => setDestPort(e.target.value)}
-              required
-              min={1}
-              max={65535}
-            />
+            <label className="text-xs text-muted-foreground mb-1.5 block">Internal port</label>
+            <Input type="number" name="dest_port" placeholder="9015" value={destPort} onChange={(e: any) => setDestPort(e.target.value)} required min={1} max={65535} />
           </div>
         </div>
         <div>
-          <label className={FIELD_LABEL_CLASS}>Protocol</label>
-          <select
-            value={protocol}
-            onChange={(e) => setProtocol(e.target.value as "tcp" | "udp" | "both")}
-            className={SELECT_CLASS}
-          >
+          <label className="text-xs text-muted-foreground mb-1.5 block">Protocol</label>
+          <select name="protocol" value={protocol} onChange={(e) => setProtocol(e.target.value as "tcp" | "udp" | "both")}
+            className="flex h-10 w-full rounded-md border border-input bg-background px-3.5 py-2 text-sm focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2 focus-visible:ring-offset-background transition-colors duration-fast ease-anthropic-out">
             <option value="tcp">TCP</option>
             <option value="udp">UDP</option>
             <option value="both">TCP + UDP</option>
           </select>
         </div>
-        {err && <p className="text-[14px] text-destructive">{err}</p>}
-        <DialogFooter className="px-0 pb-0">
-          <Button type="submit" disabled={busy}>
-            {busy ? "Creating…" : "Create"}
-          </Button>
+        {err && <p className="text-xs text-destructive">{err}</p>}
+        <DialogFooter className="pt-2">
+          <Button type="submit" disabled={busy}>{busy ? "Creating\u2026" : "Create"}</Button>
         </DialogFooter>
       </form>
-    </DialogContent>
-  );
-}
-
-
-function AwsCredentialsDialog({
-  current,
-  onSaved,
-}: {
-  current: LightsailStatus | null;
-  onSaved: (status: LightsailStatus) => void;
-}) {
-  const [accessKeyId, setAccessKeyId] = useState("");
-  const [secretAccessKey, setSecretAccessKey] = useState("");
-  const [instance, setInstance] = useState(current?.instance || "");
-  const [region, setRegion] = useState(current?.region || "ap-south-1");
-  const [busy, setBusy] = useState(false);
-  const [err, setErr] = useState<string | null>(null);
-
-  const submit = async (e: any) => {
-    e.preventDefault();
-    setBusy(true);
-    setErr(null);
-    try {
-      // The server rejects keys it cannot use, so reaching here means they work.
-      onSaved(
-        await api.setAwsConfig({
-          access_key_id: accessKeyId,
-          secret_access_key: secretAccessKey,
-          instance,
-          region,
-        })
-      );
-    } catch (e: any) {
-      setErr(e.message);
-    } finally {
-      setBusy(false);
-    }
-  };
-
-  return (
-    <DialogContent className="w-full">
-      <DialogHeader>
-        <DialogTitle>Connect AWS Lightsail</DialogTitle>
-        <p className="text-[14px] text-muted-foreground">
-          Needed to open ports in the AWS firewall and confirm they are really open.
-          Use an IAM user with the four <code>lightsail:*PublicPorts</code> and{" "}
-          <code>GetInstancePortStates</code> permissions.
-        </p>
-      </DialogHeader>
-      <form onSubmit={submit} className="space-y-5 mt-6 px-8">
-        <div>
-          <label className={FIELD_LABEL_CLASS}>Access key ID</label>
-          <Input
-            placeholder="AKIA…"
-            value={accessKeyId}
-            onChange={(e: any) => setAccessKeyId(e.target.value)}
-            required
-            autoFocus
-            autoComplete="off"
-            spellCheck={false}
-          />
-        </div>
-        <div>
-          <label className={FIELD_LABEL_CLASS}>Secret access key</label>
-          <Input
-            type="password"
-            value={secretAccessKey}
-            onChange={(e: any) => setSecretAccessKey(e.target.value)}
-            required
-            autoComplete="new-password"
-          />
-        </div>
-        <div className="grid grid-cols-2 gap-4">
-          <div>
-            <label className={FIELD_LABEL_CLASS}>Instance name</label>
-            <Input
-              placeholder="portscale"
-              value={instance}
-              onChange={(e: any) => setInstance(e.target.value)}
-              required
-              spellCheck={false}
-            />
-          </div>
-          <div>
-            <label className={FIELD_LABEL_CLASS}>Region</label>
-            <Input
-              placeholder="ap-south-1"
-              value={region}
-              onChange={(e: any) => setRegion(e.target.value)}
-              required
-              spellCheck={false}
-            />
-          </div>
-        </div>
-        {current && !current.configured && current.reason !== "No AWS credentials configured" && (
-          <p className="text-[14px] text-muted-foreground">Last error: {current.reason}</p>
-        )}
-        {err && <p className="text-[14px] text-destructive">{err}</p>}
-        <DialogFooter className="px-0 pb-0">
-          <Button type="submit" disabled={busy}>
-            {busy ? "Verifying…" : "Save & connect"}
-          </Button>
-        </DialogFooter>
-      </form>
-    </DialogContent>
-  );
-}
-
-
-function FirewallDialog({
-  rule,
-  status,
-  onOpened,
-  onDelete,
-}: {
-  rule: Rule;
-  status?: RuleStatus;
-  onOpened: (status: RuleStatus) => void;
-  onDelete: () => void;
-}) {
-  const [busy, setBusy] = useState(false);
-  const [err, setErr] = useState<string | null>(null);
-
-  const openPort = async () => {
-    setBusy(true);
-    setErr(null);
-    try {
-      onOpened(await api.openFirewall(rule.id));
-    } catch (e: any) {
-      setErr(e.message);
-    } finally {
-      setBusy(false);
-    }
-  };
-
-  return (
-    <DialogContent className="w-full">
-      <DialogHeader>
-        <DialogTitle>Port {rule.public_port} is closed in AWS</DialogTitle>
-        <p className="text-[14px] text-muted-foreground">
-          The forward works on this host, but the Lightsail firewall is dropping traffic
-          before it arrives, so nothing outside AWS can reach{" "}
-          {rule.dest_hostname}:{rule.dest_port}.
-        </p>
-      </DialogHeader>
-      <div className="space-y-5 mt-6 px-8">
-        <dl className="text-[14px] space-y-2">
-          <div className="flex justify-between gap-4">
-            <dt className="text-muted-foreground">Forward</dt>
-            <dd className="font-medium">{rule.label}</dd>
-          </div>
-          <div className="flex justify-between gap-4">
-            <dt className="text-muted-foreground">Port</dt>
-            <dd className="font-medium">
-              {rule.public_port}/{rule.protocol.toUpperCase()}
-            </dd>
-          </div>
-          {status && (
-            <div className="flex justify-between gap-4">
-              <dt className="text-muted-foreground">AWS says</dt>
-              <dd className="font-medium text-right">{status.firewall_detail}</dd>
-            </div>
-          )}
-        </dl>
-        {err && <p className="text-[14px] text-destructive">{err}</p>}
-        <DialogFooter className="px-0 pb-0 gap-3">
-          {/* No second confirm: opening the dialog was already the deliberate act. */}
-          <Button variant="destructive" onClick={onDelete} disabled={busy}>
-            Delete forward
-          </Button>
-          <Button onClick={openPort} disabled={busy}>
-            {busy ? "Opening…" : "Open port in AWS"}
-          </Button>
-        </DialogFooter>
-      </div>
     </DialogContent>
   );
 }

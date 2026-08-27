@@ -1,60 +1,113 @@
+@import url("https://fonts.googleapis.com/css2?family=Source+Serif+4:ital,opsz,wght@0,8..60,300..900;1,8..60,300..900&display=swap");
+@import url("https://fonts.googleapis.com/css2?family=JetBrains+Mono:wght@400;500&display=swap");
+
 @tailwind base;
 @tailwind components;
 @tailwind utilities;
 
 @layer base {
-  /* Dark only. There is no light theme and no toggle — the app lives in the
-     product-forward zone of the system, where black frames the content. */
   :root {
-    --background: 0 0% 0%;          /* Console Black    #000000 */
-    --foreground: 0 0% 100%;        /* Inverse White    #ffffff */
+    /* Anthropic-inspired warm dark palette */
+    --background: 30 12% 9%;          /* #1a1714 — warm charcoal, not pure black */
+    --foreground: 30 14% 88%;         /* #e8e0d8 — warm off-white */
+    --card: 30 10% 11%;               /* #221f1b — elevated warm surface */
+    --card-foreground: 30 14% 88%;    /* same as foreground */
+    --primary: 24 58% 50%;            /* #c4703a — terracotta/amber accent */
+    --primary-foreground: 30 12% 9%;  /* dark text on accent */
+    --secondary: 30 10% 14%;          /* #2a2622 — warm secondary */
+    --secondary-foreground: 30 14% 82%;
+    --muted: 30 10% 14%;              /* same as secondary */
+    --muted-foreground: 25 12% 48%;   /* #7a7068 — warm muted */
+    --accent: 30 10% 16%;             /* #2a2622 — hover surfaces */
+    --accent-foreground: 30 14% 88%;
+    --destructive: 0 50% 50%;         /* #b05050 — warm red */
+    --destructive-foreground: 30 14% 92%;
+    --border: 25 12% 17%;             /* #332e2a — subtle warm border */
+    --input: 25 12% 17%;              /* same as border */
+    --ring: 24 58% 50%;               /* terracotta focus ring */
+    --success: 140 25% 42%;           /* #5a8a6a — muted green */
 
-    --card: 210 5% 7%;              /* Shadow Black     #121314 */
-    --card-foreground: 0 0% 100%;   /* Inverse White    #ffffff */
-
-    --primary: 207 100% 40%;        /* PlayStation Blue #0070cc */
-    --primary-foreground: 0 0% 100%;
-
-    --secondary: 0 0% 12%;          /* Deep Charcoal    #1f1f1f */
-    --secondary-foreground: 0 0% 100%;
-
-    --muted: 0 0% 12%;              /* Deep Charcoal    #1f1f1f */
-    --muted-foreground: 0 0% 80%;   /* Mute Gray        #cccccc */
-
-    /* Interaction only. Never a resting background or text color. */
-    --accent: 194 76% 49%;          /* PlayStation Cyan #1eaedb */
-    --accent-foreground: 0 0% 100%;
-
-    --destructive: 349 76% 45%;     /* Warning Red      #c81b3a */
-    --destructive-foreground: 0 0% 100%;
-
-    /* Status only. The one green in the system: a live connection, nothing else. */
-    --success: 145 63% 38%;         /* Signal Green     #24a05a */
-    --success-foreground: 0 0% 100%;
-
-    --border: 0 0% 12%;             /* Deep Charcoal    #1f1f1f */
-    --input: 0 0% 42%;              /* Body Gray        #6b6b6b */
-    --ring: 207 100% 40%;           /* PlayStation Blue #0070cc */
-
-    --link-on-dark: 207 100% 66%;   /* Dark-Link Blue   #53b1ff */
+    /* Anthropic motion — restrained, short, simple */
+    --ease-out: cubic-bezier(0.16, 1, 0.3, 1);
+    --ease-in-out: cubic-bezier(0.45, 0, 0.55, 1);
+    --duration-fast: 100ms;           /* micro: toggle, icon swap */
+    --duration-normal: 150ms;         /* standard: hover, focus, color */
+    --duration-slow: 200ms;           /* emphasis: dialog backdrop, panel */
   }
 }
 
 @layer base {
-  * {
-    @apply border-border;
-  }
-  html {
-    background-color: hsl(var(--background));
-  }
+  * { @apply border-border; }
+  html { background-color: hsl(var(--background)); }
   body {
     @apply bg-background text-foreground antialiased;
-    /* SST is Sony-proprietary; Arial/Helvetica is the fallback the system specifies. */
-    font-family: "SST", "PlayStation SST", Arial, Helvetica, sans-serif;
+    font-family: system-ui, -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif;
   }
-  /* Weight 300 at 22px and up is the display voice — never bold a display headline. */
-  .display {
-    font-weight: 300;
-    line-height: 1.25;
+  h1, h2, h3, h4, h5, h6 {
+    font-family: "Source Serif 4", "Georgia", serif;
+  }
+  code, pre, .font-mono {
+    font-family: "JetBrains Mono", "Fira Code", monospace;
+  }
+  ::selection {
+    background-color: hsl(24 58% 50% / 0.3);
+  }
+}
+
+/* Anthropic dialog entrance — subtle scale + fade, no bounce */
+@keyframes dialog-in {
+  from {
+    opacity: 0;
+    transform: scale(0.97) translateY(4px);
+  }
+  to {
+    opacity: 1;
+    transform: scale(1) translateY(0);
+  }
+}
+
+.animate-dialog-in {
+  animation: dialog-in var(--duration-slow) var(--ease-out) both;
+}
+
+/* Anthropic page entrance — fade + drift up, no bounce */
+@keyframes page-in {
+  from {
+    opacity: 0;
+    transform: translateY(8px);
+  }
+  to {
+    opacity: 1;
+    transform: translateY(0);
+  }
+}
+
+.animate-page-in {
+  animation: page-in 300ms var(--ease-out) both;
+}
+
+/* Anthropic row entrance — staggered fade + drift, no bounce */
+@keyframes row-in {
+  from {
+    opacity: 0;
+    transform: translateY(6px);
+  }
+  to {
+    opacity: 1;
+    transform: translateY(0);
+  }
+}
+
+.animate-row-in {
+  animation: row-in 250ms var(--ease-out) both;
+}
+
+/* Anthropic motion: respect user preference */
+@media (prefers-reduced-motion: reduce) {
+  *, *::before, *::after {
+    animation-duration: 0.01ms !important;
+    animation-iteration-count: 1 !important;
+    transition-duration: 0.01ms !important;
+    scroll-behavior: auto !important;
   }
 }
