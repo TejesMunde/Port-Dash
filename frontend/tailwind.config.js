@@ -19,12 +19,17 @@ export default {
         info: { DEFAULT: "hsl(var(--info))" },
       },
       fontFamily: {
-        sans: ["Inter", "Arial", "Helvetica", "sans-serif"],
+        sans: ["Inter", "-apple-system", "system-ui", "sans-serif"],
         mono: ["SF Mono", "Fira Code", "Roboto Mono", "monospace"],
       },
-      borderRadius: { lg: "0.5rem", md: "2px", sm: "2px" },
+      borderRadius: { lg: "8px", md: "6px", sm: "4px" },
+      boxShadow: {
+        card: "var(--shadow-card)",
+        elevated: "var(--shadow-elevated)",
+        glow: "var(--shadow-glow)",
+      },
       transitionTimingFunction: {
-        "ferrari": "cubic-bezier(0.25, 0.1, 0.25, 1)",
+        "premium": "cubic-bezier(0.16, 1, 0.3, 1)",
       },
       transitionDuration: {
         "fast": "var(--duration-fast)",

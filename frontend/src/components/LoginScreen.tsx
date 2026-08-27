@@ -26,7 +26,7 @@ export function LoginScreen({ onSuccess }: { onSuccess: () => void }) {
 
   return (
     <div className="min-h-screen grid place-items-center p-4 animate-page-in bg-background">
-      <Card className="w-full max-w-sm p-8">
+      <Card className="w-full max-w-sm p-8 bg-card/50 backdrop-blur-sm border-border/50">
         <div className="text-center mb-6">
           <div className="label-upper text-muted-foreground mb-3 tracking-widest">Dashboard</div>
           <h1 className="text-2xl font-semibold tracking-tight">Port Forward</h1>
@@ -52,7 +52,7 @@ export function LoginScreen({ onSuccess }: { onSuccess: () => void }) {
             />
           </div>
           {err && <p className="text-xs text-destructive">{err}</p>}
-          <Button type="submit" disabled={busy} className="w-full">
+          <Button type="submit" disabled={busy} className="w-full mt-4">
             {busy ? "Signing in…" : "Sign in"}
           </Button>
         </form>

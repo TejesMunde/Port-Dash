@@ -6,41 +6,46 @@
 
 @layer base {
   :root {
-    /* Ferrari — Absolute Black canvas, Rosso Corsa accent, editorial precision */
-    --background: 0 0% 0%;             /* #000000 — Absolute Black */
-    --foreground: 0 0% 100%;           /* White */
+    /* Premium Dark Blend — Linear precision + Stripe shadows + Deep Indigo accent */
+    --background: 226 33% 8%;          /* #0E111A — Deep space dark */
+    --foreground: 226 10% 95%;         /* #F2F4F7 — Soft white */
 
-    --card: 0 0% 100%;                 /* White — editorial panels */
-    --card-foreground: 0 0% 9%;        /* #181818 — Near Black */
+    --card: 226 30% 11%;               /* #141822 — Elevated dark surface */
+    --card-foreground: 226 10% 95%;
 
-    --primary: 4 77% 51%;              /* #DA291C — Ferrari Red */
+    --primary: 248 76% 66%;            /* #7B61FF — Deep Indigo Violet */
     --primary-foreground: 0 0% 100%;
 
-    --secondary: 0 0% 19%;             /* #303030 — Dark Surface */
-    --secondary-foreground: 0 0% 90%;
+    --secondary: 226 30% 14%;          /* #1A1F2B — Secondary dark */
+    --secondary-foreground: 226 10% 80%;
 
-    --muted: 0 0% 19%;
-    --muted-foreground: 0 0% 56%;      /* #8F8F8F — Mid Gray */
+    --muted: 226 30% 14%;
+    --muted-foreground: 226 6% 55%;    /* #8A90A0 — Muted gray */
 
-    --accent: 4 77% 51%;               /* Ferrari Red — used sparingly */
+    --accent: 248 76% 66%;             /* Indigo Violet accent */
     --accent-foreground: 0 0% 100%;
 
-    --destructive: 2 82% 57%;          /* #F13A2C — Warning Red */
+    --destructive: 0 72% 51%;          /* #DC3545 — Error red */
     --destructive-foreground: 0 0% 100%;
 
-    --border: 0 0% 20%;                /* #333333 — subtle dark dividers */
-    --input: 0 0% 20%;
-    --ring: 4 77% 51%;                 /* Ferrari Red focus */
+    --border: 226 20% 18%;             /* #272D3D — Subtle border */
+    --input: 226 20% 18%;
+    --ring: 248 76% 66%;               /* Indigo focus ring */
 
-    --success: 148 68% 29%;            /* #03904A */
-    --info: 197 34% 51%;               /* #4C98B9 */
+    --success: 160 51% 45%;            /* #34C759 — Success green */
+    --info: 210 100% 56%;              /* #2196F3 — Info blue */
 
-    /* Ferrari motion — crisp, editorial */
-    --ease-out: cubic-bezier(0.25, 0.1, 0.25, 1);
-    --ease-in-out: cubic-bezier(0.42, 0, 0.58, 1);
-    --duration-fast: 200ms;
-    --duration-normal: 300ms;
-    --duration-slow: 300ms;
+    /* Motion — precise, no-nonsense */
+    --ease-out: cubic-bezier(0.16, 1, 0.3, 1);
+    --ease-in-out: cubic-bezier(0.76, 0, 0.24, 1);
+    --duration-fast: 150ms;
+    --duration-normal: 250ms;
+    --duration-slow: 350ms;
+
+    /* Shadow — Stripe-inspired layered depth */
+    --shadow-card: 0 1px 2px rgba(0,0,0,0.3), 0 4px 8px rgba(0,0,0,0.2);
+    --shadow-elevated: 0 4px 16px rgba(0,0,0,0.4), 0 8px 32px rgba(0,0,0,0.3);
+    --shadow-glow: 0 0 20px rgba(123, 97, 255, 0.15);
   }
 }
 
@@ -49,39 +54,39 @@
   html { background-color: hsl(var(--background)); }
   body {
     @apply bg-background text-foreground antialiased;
-    font-family: "Inter", Arial, Helvetica, sans-serif;
+    font-family: "Inter", -apple-system, system-ui, sans-serif;
   }
   h1, h2, h3, h4, h5, h6 {
-    font-family: "Inter", Arial, Helvetica, sans-serif;
+    font-family: "Inter", -apple-system, system-ui, sans-serif;
   }
   code, pre, .font-mono {
     font-family: "SF Mono", "Fira Code", "Roboto Mono", monospace;
   }
   ::selection {
-    background-color: hsl(4 77% 51% / 0.3);
+    background-color: hsl(248 76% 66% / 0.3);
   }
 }
 
-/* Ferrari entrance — sharp fade */
+/* Entrance animations — Linear-style smooth */
 @keyframes dialog-in {
-  from { opacity: 0; }
-  to { opacity: 1; }
+  from { opacity: 0; transform: scale(0.96) translateY(4px); }
+  to { opacity: 1; transform: scale(1) translateY(0); }
 }
 .animate-dialog-in {
   animation: dialog-in var(--duration-normal) var(--ease-out) both;
 }
 
 @keyframes page-in {
-  from { opacity: 0; }
-  to { opacity: 1; }
+  from { opacity: 0; transform: translateY(8px); }
+  to { opacity: 1; transform: translateY(0); }
 }
 .animate-page-in {
   animation: page-in var(--duration-slow) var(--ease-out) both;
 }
 
 @keyframes row-in {
-  from { opacity: 0; }
-  to { opacity: 1; }
+  from { opacity: 0; transform: translateY(6px); }
+  to { opacity: 1; transform: translateY(0); }
 }
 .animate-row-in {
   animation: row-in var(--duration-normal) var(--ease-out) both;
@@ -92,18 +97,26 @@
   100% { background-position: 200% 0; }
 }
 .skeleton {
-  background: linear-gradient(90deg, hsl(var(--secondary)) 25%, hsl(0 0% 25%) 50%, hsl(var(--secondary)) 75%);
+  background: linear-gradient(90deg, hsl(var(--secondary)) 25%, hsl(226 30% 16%) 50%, hsl(var(--secondary)) 75%);
   background-size: 200% 100%;
   animation: shimmer 1.5s ease-in-out infinite;
-  border-radius: 2px;
+  border-radius: 4px;
 }
 
-/* Editorial uppercase label utility */
+/* Utility classes */
 .label-upper {
   text-transform: uppercase;
-  letter-spacing: 1px;
+  letter-spacing: 0.5px;
   font-size: 0.75rem;
-  font-weight: 400;
+  font-weight: 600;
+}
+
+/* Glassmorphism utility */
+.glass {
+  background: hsl(226 30% 11% / 0.8);
+  backdrop-filter: blur(12px);
+  -webkit-backdrop-filter: blur(12px);
+  border: 1px solid hsl(226 20% 18% / 0.5);
 }
 
 @media (prefers-reduced-motion: reduce) {

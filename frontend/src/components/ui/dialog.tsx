@@ -1,81 +1,146 @@
-import React, { useEffect, useRef } from "react";
-import { cn } from "../../lib/utils";
+import * as React from "react"
+import { cn } from "../../lib/utils"
 
-export function Dialog({
-  open,
-  onOpenChange,
-  children,
-}: {
-  open: boolean;
-  onOpenChange: (v: boolean) => void;
+interface DialogProps {
+  open?: boolean;
+  onOpenChange?: (open: boolean) => void;
   children: React.ReactNode;
-}) {
-  const ref = useRef<HTMLDialogElement>(null);
+}
 
-  useEffect(() => {
-    const el = ref.current;
-    if (!el) return;
-    if (open && !el.open) el.showModal();
-    if (!open && el.open) el.close();
+function Dialog({ open, onOpenChange, children }: DialogProps) {
+  const [isOpen, setIsOpen] = React.useState(open || false);
+  const dialogRef = React.useRef<HTMLDialogElement>(null);
+
+  React.useEffect(() => {
+    if (open !== undefined) {
+      setIsOpen(open);
+      if (dialogRef.current) {
+        if (open) {
+          dialogRef.current.showModal();
+        } else {
+          dialogRef.current.close();
+        }
+      }
+    }
   }, [open]);
 
-  useEffect(() => {
-    const el = ref.current;
-    if (!el) return;
-    const close = () => onOpenChange(false);
-    el.addEventListener("close", close);
-    return () => el.removeEventListener("close", close);
-  }, [onOpenChange]);
-
-  const triggerChild = React.Children.toArray(children).find(
-    (c) => React.isValidElement(c) && c.type === DialogTrigger
-  );
-  const otherChildren = React.Children.toArray(children).filter(
-    (c) => !(React.isValidElement(c) && c.type === DialogTrigger)
-  );
+  const handleClose = () => {
+    setIsOpen(false);
+    onOpenChange?.(false);
+  };
 
   return (
-    <>
-      {triggerChild}
-      <dialog
-        ref={ref}
-        className={cn(
-          "backdrop:bg-black/80",
-          "open:animate-dialog-in"
-        )}
-        style={{
-          maxWidth: "min(32rem, calc(100vw - 2rem))",
-          width: "100%",
-          margin: "auto",
-          padding: 0,
-          border: "1px solid hsl(var(--border))",
-          borderRadius: "2px",
-          background: "hsl(var(--card))",
-          color: "hsl(var(--card-foreground))",
-        }}
-      >
-        {open && otherChildren}
-      </dialog>
-    </>
+    <DialogContext.Provider value={{ open: isOpen, onOpenChange: setIsOpen, onClose: handleClose }}>
+      {children}
+    </DialogContext.Provider>
   );
 }
 
-export function DialogTrigger({ children, asChild: _asChild }: { children: React.ReactElement; asChild?: boolean }) {
-  return children;
+const DialogContext = React.createContext<{
+  open: boolean;
+  onOpenChange: (open: boolean) => void;
+  onClose: () => void;
+}>({
+  open: false,
+  onOpenChange: () => {},
+  onClose: () => {},
+});
+
+interface DialogTriggerProps extends React.ButtonHTMLAttributes<HTMLButtonElement> {
+  asChild?: boolean;
 }
 
-export function DialogContent({ className, children }: { className?: string; children?: React.ReactNode }) {
-  return <div className={className}>{children}</div>;
+function DialogTrigger({ children, asChild, ...props }: DialogTriggerProps) {
+  const { onOpenChange } = React.useContext(DialogContext);
+  
+  if (asChild && React.isValidElement(children)) {
+    return React.cloneElement(children as React.ReactElement<any>, {
+      onClick: (e: React.MouseEvent) => {
+        (children.props as any).onClick?.(e);
+        onOpenChange(true);
+      },
+    });
+  }
+  
+  return (
+    <button {...props} onClick={(e) => { props.onClick?.(e); onOpenChange(true); }}>
+      {children}
+    </button>
+  );
 }
 
-export function DialogHeader({ className, children }: { className?: string; children?: React.ReactNode }) {
-  return <div className={cn("flex flex-col space-y-1 p-6 pb-0", className)}>{children}</div>;
+function DialogContent({ className, children, ...props }: React.HTMLAttributes<HTMLDivElement>) {
+  const { open, onClose } = React.useContext(DialogContext);
+  const dialogRef = React.useRef<HTMLDialogElement>(null);
+
+  React.useEffect(() => {
+    if (dialogRef.current) {
+      if (open) {
+        dialogRef.current.showModal();
+      } else {
+        dialogRef.current.close();
+      }
+    }
+  }, [open]);
+
+  if (!open) return null;
+
+  return (
+    <dialog
+      ref={dialogRef}
+      onClose={onClose}
+      className={cn(
+        "fixed inset-0 z-50 bg-transparent",
+        "[&[open]]:flex [&[open]]:items-center [&[open]]:justify-center",
+        "[&[open]]:bg-black/60 backdrop-blur-sm",
+        "p-0",
+      )}
+      onClick={(e) => {
+        if (e.target === dialogRef.current) onClose();
+      }}
+    >
+      <div
+        className={cn(
+          "relative w-full max-w-md bg-card border border-border rounded-lg p-6 shadow-elevated",
+          "animate-dialog-in",
+          className
+        )}
+        {...props}
+      >
+        <button
+          onClick={onClose}
+          className="absolute right-4 top-4 rounded-sm opacity-70 transition-opacity hover:opacity-100 focus:outline-none focus:ring-2 focus:ring-ring"
+        >
+          ✕
+        </button>
+        {children}
+      </div>
+    </dialog>
+  );
 }
 
-export function DialogFooter({ className, children }: { className?: string; children?: React.ReactNode }) {
-  return <div className={cn("flex justify-end gap-2 p-6 pt-4", className)}>{children}</div>;
+function DialogHeader({ className, ...props }: React.HTMLAttributes<HTMLDivElement>) {
+  return <div className={cn("flex flex-col space-y-1.5 text-center sm:text-left", className)} {...props} />;
 }
 
-export function DialogTitle({ className, children }: { className?: string; children?: React.ReactNode }) {
-  return <h2 className={cn("text-lg font-semibold", className)}>{children}</h2>;
+function DialogTitle({ className, ...props }: React.HTMLAttributes<HTMLHeadingElement>) {
+  return <h2 className={cn("text-lg font-semibold leading-none tracking-tight", className)} {...props} />;
+}
+
+function DialogDescription({ className, ...props }: React.HTMLAttributes<HTMLParagraphElement>) {
+  return <p className={cn("text-sm text-muted-foreground", className)} {...props} />;
+}
+
+function DialogFooter({ className, ...props }: React.HTMLAttributes<HTMLDivElement>) {
+  return <div className={cn("flex flex-col-reverse sm:flex-row sm:justify-end sm:space-x-2", className)} {...props} />;
+}
+
+export {
+  Dialog,
+  DialogTrigger,
+  DialogContent,
+  DialogHeader,
+  DialogFooter,
+  DialogTitle,
+  DialogDescription,
 }

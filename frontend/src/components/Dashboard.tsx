@@ -253,9 +253,9 @@ export function Dashboard({ onLogout }: { onLogout: () => void }) {
         )}
       </main>
 
-      <footer className="mt-auto bg-secondary">
+      <footer className="mt-auto bg-card border-t border-border">
         <div className="max-w-4xl mx-auto px-6 py-4 flex items-center justify-between">
-          <span className="label-upper text-muted-foreground">Port Forward Dashboard</span>
+          <span className="label-upper text-muted-foreground tracking-widest">Port Forward Dashboard</span>
           <span className="label-upper text-muted-foreground">v{updateInfo?.current || "?"}</span>
         </div>
       </footer>
@@ -417,7 +417,7 @@ function RuleRow({ rule, index, publicIp, status, verifying, onToggle, onDelete,
         <div className="flex-1 min-w-0">
           <div className="flex items-center gap-2">
             <span className="font-medium truncate text-sm">{rule.label}</span>
-            <span className="text-[9px] px-1.5 py-0.5 rounded-full bg-secondary text-secondary-foreground uppercase font-mono tracking-wider transition-colors duration-normal ease-ferrari">{rule.protocol}</span>
+            <span className="text-[9px] px-1.5 py-0.5 rounded-full bg-secondary text-secondary-foreground uppercase font-mono tracking-wider">{rule.protocol}</span>
             {badge.text && (
               <button onClick={badge.actionable ? onOpenFirewall : undefined}
                 className={`text-[9px] px-1.5 py-0.5 rounded-full font-medium transition-colors duration-normal ease-ferrari ${toneClasses[badge.tone]} ${badge.actionable ? "cursor-pointer hover:opacity-80" : ""}`}
