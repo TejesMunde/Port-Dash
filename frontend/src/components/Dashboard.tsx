@@ -83,18 +83,6 @@ export function Dashboard({ onLogout }: { onLogout: () => void }) {
     setVerifyingIds(new Set());
   };
 
-  const checkUpdate = async () => {
-    try {
-      const info = await api.checkUpdate();
-      setUpdateInfo(info);
-      alert(info.update_available
-        ? `Update available: v${info.current} \u2192 v${info.latest}`
-        : `You're on the latest version (v${info.current})`);
-    } catch {
-      alert("Could not check for updates. Is the server reachable?");
-    }
-  };
-
   const handleUpdate = async () => {
     if (!confirm("Update to latest version? Port rules will be preserved.")) return;
     setUpdating(true);
@@ -109,9 +97,7 @@ export function Dashboard({ onLogout }: { onLogout: () => void }) {
   useEffect(() => {
     if (cachedRules.current.length > 0) setRules(cachedRules.current);
     load(); loadLsStatus();
-    api.checkUpdate()
-      .then((v) => setUpdateInfo({ current: v.current, latest: v.current, update_available: false }))
-      .catch(() => {});
+    api.checkUpdate().then(setUpdateInfo).catch(() => {});
     return () => {
       if (deleteTimeoutRef.current) { clearTimeout(deleteTimeoutRef.current); deleteTimeoutRef.current = null; }
       if (pollRef.current) { clearInterval(pollRef.current); pollRef.current = null; }
@@ -158,7 +144,8 @@ export function Dashboard({ onLogout }: { onLogout: () => void }) {
     e.preventDefault();
     setCredBusy(true); setCredErr(null);
     try {
-      await api.saveCredentials({ instance: credInstance, region: credRegion, access_key: credAccessKey, secret_key: credSecretKey });
+      const result = await api.saveCredentials({ instance: credInstance, region: credRegion, access_key_id: credAccessKey, secret_access_key: credSecretKey });
+      setLsStatus(result);
       setCredOpen(false);
       loadLsStatus();
     } catch (e: any) { setCredErr(e.message); }
@@ -190,7 +177,7 @@ export function Dashboard({ onLogout }: { onLogout: () => void }) {
               AWS
             </button>
             <Button variant="ghost" size="icon" onClick={load} title="Refresh" className="text-muted-foreground hover:text-foreground">\u21BB</Button>
-            <Button variant="ghost" size="icon" onClick={checkUpdate} title="Version" className="text-muted-foreground hover:text-foreground">v</Button>
+
             <Button variant="ghost" size="icon" onClick={logout} title="Sign out" className="text-muted-foreground hover:text-foreground">\u2192</Button>
           </div>
         </div>
@@ -267,8 +254,11 @@ export function Dashboard({ onLogout }: { onLogout: () => void }) {
         )}
       </main>
 
-      <footer className="fixed bottom-3 left-3 px-2.5 py-1 rounded-md bg-secondary/80 backdrop-blur-sm text-[11px] text-muted-foreground font-mono">
-        v{updateInfo?.current || "?"}
+      <footer className="bg-primary text-primary-foreground">
+        <div className="max-w-4xl mx-auto px-6 py-2 flex items-center justify-between text-xs font-mono">
+          <span>Port Forward Dashboard</span>
+          <span className="opacity-70">v{updateInfo?.current || "?"}</span>
+        </div>
       </footer>
 
       {/* AWS credentials dialog */}
@@ -331,13 +321,15 @@ export function badgeFor(status: RuleStatus | undefined, enabled: boolean, verif
   if (verifying) return { ...idle, text: "Verifying\u2026", tone: "warn" };
   if (!enabled) return { ...idle, text: "Disabled", tone: "idle" };
   if (!status) return { ...idle, text: "Checking\u2026", tone: "warn" };
+  // Firewall is checked first — a blocked port makes the backend irrelevant.
   if (status.firewall === "closed") return { text: "Blocked in AWS", tone: "bad", actionable: true, title: status.firewall_detail };
   if (status.firewall === "unconfigured") return { text: "AWS unverified", tone: "warn", actionable: false, title: status.firewall_detail };
+  // Connectable means firewall is open AND backend responded — the best state.
+  if (status.connectable) return { text: "Open & connectable", tone: "good", actionable: false, title: status.firewall_detail };
+  // Firewall is open but backend issues remain.
   if (status.backend === "refused") return { text: "Nothing listening", tone: "bad", actionable: false, title: status.backend_detail };
-  if (status.backend === "timeout") return { text: "Timeout", tone: "bad", actionable: false, title: status.backend_detail };
-  if (status.backend === "unknown") return { text: "Unknown", tone: "warn", actionable: false, title: status.backend_detail };
-  if (status.connectable) return { text: "Open", tone: "good", actionable: false, title: status.backend_detail };
-  return idle;
+  if (status.backend === "timeout") return { text: "Destination unreachable", tone: "bad", actionable: false, title: status.backend_detail };
+  return { text: "Port open, backend unverified", tone: "warn", actionable: false, title: status.backend_detail };
 }
 
 export function verificationSettled(ruleIds: number[], statuses: RuleStatus[]): boolean {
@@ -345,8 +337,9 @@ export function verificationSettled(ruleIds: number[], statuses: RuleStatus[]): 
   return ruleIds.every((id) => {
     const s = byId.get(id);
     if (!s) return false;
-    if (s.firewall === "closed") return false;
-    return true;
+    // Only "open" and "unconfigured" are final answers. "closed" means AWS
+    // blocked the port (we can fix that), and anything else is still pending.
+    return s.firewall === "open" || s.firewall === "unconfigured";
   });
 }
 
@@ -388,7 +381,7 @@ function NetworkInfoCard({ info }: { info: NetworkInfo }) {
                 <span className={`w-2 h-2 rounded-full inline-block transition-colors duration-slow ${p.online ? "bg-success" : "bg-muted-foreground"}`} />
                 <span className="font-medium">{p.hostname}</span>
                 <span className="text-muted-foreground font-mono text-[10px]">{p.ip}</span>
-                {p.tags.map((t) => (<span key={t} className="px-1.5 rounded-full bg-accent text-muted-foreground text-[9px]">{t}</span>))}
+                {p.tags.map((t) => (<span key={t} className="px-1.5 rounded-full bg-muted text-muted-foreground text-[9px]">{t}</span>))}
               </div>
             ))}
           </div>

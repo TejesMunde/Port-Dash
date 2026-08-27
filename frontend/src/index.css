@@ -38,6 +38,7 @@
 
 @layer base {
   * { @apply border-border; }
+  html { background-color: hsl(var(--background)); }
   body {
     @apply bg-background text-foreground antialiased;
     font-family: system-ui, -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif;

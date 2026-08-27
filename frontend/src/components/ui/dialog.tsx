@@ -46,7 +46,7 @@ export function Dialog({
           "open:animate-dialog-in"
         )}
         style={{
-          maxWidth: "32rem",
+          maxWidth: "min(32rem, calc(100vw - 2rem))",
           width: "100%",
           margin: "auto",
           padding: 0,

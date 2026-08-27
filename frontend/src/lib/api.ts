@@ -112,9 +112,9 @@ export type LightsailStatus = {
 
 export type RuleStatus = {
   id: number;
-  firewall: string;         // "open" | "closed" | "unconfigured"
+  firewall: "open" | "closed" | "unconfigured";
   firewall_detail: string;
-  backend: string;          // "reachable" | "refused" | "timeout" | "unknown"
+  backend: "reachable" | "refused" | "timeout" | "unknown";
   backend_detail: string;
   connectable: boolean;
 };
@@ -134,6 +134,6 @@ export const api = {
   rulesStatus: () => request<RuleStatus[]>("/api/rules/status"),
   openFirewall: (id: number) =>
     request<RuleStatus>(`/api/rules/${id}/open-firewall`, { method: "POST" }),
-  saveCredentials: (creds: { instance: string; region: string; access_key: string; secret_key: string }) =>
-    request<{ ok: boolean }>('/api/lightsail-credentials', { method: 'POST', body: JSON.stringify(creds) }),
+  saveCredentials: (creds: { instance: string; region: string; access_key_id: string; secret_access_key: string }) =>
+    request<LightsailStatus>('/api/aws-config', { method: 'POST', body: JSON.stringify(creds) }),
 };
