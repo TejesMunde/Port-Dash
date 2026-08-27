@@ -6,6 +6,7 @@ User only enters: label, public port, internal port, and picks destination from 
 """
 import json
 import os
+import random
 import shutil
 import socket
 import subprocess
@@ -260,17 +261,13 @@ def _firewall_state(port: int, protocol: str, states: Optional[list[dict]], reas
     return "closed", "not open in the AWS firewall"
 
 
-def _probe_backend(rule: "ForwardRule") -> tuple[str, str]:
-    """TCP-connect the destination. A UDP-only listener legitimately refuses TCP,
-    so a refusal on a UDP rule is 'unknown', never a failure."""
+def _probe_tcp(rule: "ForwardRule") -> tuple[str, str]:
     sock = socket.socket()
     sock.settimeout(PROBE_TIMEOUT)
     try:
         sock.connect((rule.dest_ip, rule.dest_port))
         return "reachable", "destination accepted a connection"
     except ConnectionRefusedError:
-        if rule.protocol == "udp":
-            return "unknown", "UDP cannot be probed; destination refused TCP"
         return "refused", "nothing is listening on the destination port"
     except socket.timeout:
         return "timeout", "destination did not respond"
@@ -278,6 +275,57 @@ def _probe_backend(rule: "ForwardRule") -> tuple[str, str]:
         return "unknown", str(e)
     finally:
         sock.close()
+
+
+def _udp_once(ip: str, port: int) -> str:
+    """'replied' | 'refused' | 'silent' | 'error'. A *connected* UDP socket is the
+    trick: it surfaces an ICMP port-unreachable as ConnectionRefusedError, which an
+    unconnected socket would silently discard."""
+    sock = socket.socket(socket.AF_INET, socket.SOCK_DGRAM)
+    sock.settimeout(PROBE_TIMEOUT)
+    try:
+        sock.connect((ip, port))
+        sock.send(bytes(1))  # one junk byte; the answer we want is ICMP, not data
+        try:
+            sock.recv(2048)
+            return "replied"
+        except socket.timeout:
+            return "silent"
+    except ConnectionRefusedError:
+        return "refused"
+    except OSError:
+        return "error"
+    finally:
+        sock.close()
+
+
+def _udp_verdict(target: str, control: str) -> tuple[str, str]:
+    """Decision table for UDP, kept pure so it can be checked without a network.
+
+    Silence is the *positive* signal -- a bound UDP port usually ignores junk
+    rather than answering it. But silence is also what ICMP rate limiting looks
+    like, so it only counts once the control port (one we expect to be dead)
+    comes back refused, proving rejections are actually flowing."""
+    if target == "replied":
+        return "reachable", "destination replied to a UDP probe"
+    if target == "refused":
+        return "refused", "nothing is listening on the destination UDP port"
+    if target == "error":
+        return "unknown", "UDP probe could not be sent"
+    if control == "refused":
+        return "reachable", "destination is bound on UDP (closed ports here are rejected, this one is not)"
+    return "unknown", "cannot verify UDP: this host does not reject closed ports"
+
+
+def _probe_udp(rule: "ForwardRule") -> tuple[str, str]:
+    target = _udp_once(rule.dest_ip, rule.dest_port)
+    # Only pay for the control probe when the answer actually hinges on it.
+    control = _udp_once(rule.dest_ip, random.randint(50000, 60000)) if target == "silent" else ""
+    return _udp_verdict(target, control)
+
+
+def _probe_backend(rule: "ForwardRule") -> tuple[str, str]:
+    return _probe_udp(rule) if rule.protocol == "udp" else _probe_tcp(rule)
 
 
 # ----- Auth -----
