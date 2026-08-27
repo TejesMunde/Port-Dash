@@ -160,14 +160,23 @@ def _ls_client():
 
 
 def lightsail_open(port: int, protocol: str) -> None:
+    """Raises on failure. Callers that must not fail use lightsail_open_quiet."""
+    global _ls_cache
     cfg = aws_config()
     if not cfg["instance"] or DRY_RUN:
         return
+    _ls_client().open_instance_public_ports(
+        instanceName=cfg["instance"],
+        portInfo={"fromPort": port, "toPort": port, "protocol": protocol},
+    )
+    _ls_cache = None  # the cached port states are now stale
+
+
+def lightsail_open_quiet(port: int, protocol: str) -> None:
+    """Best-effort. A firewall failure here must not undo a working iptables rule;
+    the rule's badge will say "Blocked in AWS" and offer a retry that does report."""
     try:
-        _ls_client().open_instance_public_ports(
-            instanceName=cfg["instance"],
-            portInfo={"fromPort": port, "toPort": port, "protocol": protocol},
-        )
+        lightsail_open(port, protocol)
     except Exception as e:
         print(f"[lightsail] open {port}/{protocol} failed: {e}")
 
@@ -414,7 +423,7 @@ def create_rule(rule_in: RuleIn, user: str = Depends(current_user)):
         session.refresh(rule)
         if rule.enabled:
             apply_rule(rule)
-            lightsail_open(rule.public_port, rule.protocol)
+            lightsail_open_quiet(rule.public_port, rule.protocol)
         return rule
 
 
@@ -461,7 +470,7 @@ def toggle_rule(rule_id: int, user: str = Depends(current_user)):
         else:
             apply_rule(rule)
             rule.enabled = True
-            lightsail_open(rule.public_port, rule.protocol)
+            lightsail_open_quiet(rule.public_port, rule.protocol)
         session.add(rule)
         session.commit()
         session.refresh(rule)
@@ -524,18 +533,42 @@ def rules_status(user: str = Depends(current_user)):
     states, reason = _lightsail_ports()
     with ThreadPoolExecutor(max_workers=8) as pool:
         probes = list(pool.map(_probe_backend, rules))
-    out = []
-    for rule, (backend, backend_detail) in zip(rules, probes):
-        firewall, firewall_detail = _firewall_state(rule.public_port, rule.protocol, states, reason)
-        out.append(RuleStatus(
-            id=rule.id,
-            firewall=firewall,
-            firewall_detail=firewall_detail,
-            backend=backend,
-            backend_detail=backend_detail,
-            connectable=rule.enabled and firewall == "open" and backend == "reachable",
-        ))
-    return out
+    return [
+        _rule_status(rule, probe, states, reason)
+        for rule, probe in zip(rules, probes)
+    ]
+
+
+def _rule_status(rule: "ForwardRule", probe: tuple[str, str],
+                 states: Optional[list[dict]], reason: str) -> RuleStatus:
+    backend, backend_detail = probe
+    firewall, firewall_detail = _firewall_state(rule.public_port, rule.protocol, states, reason)
+    return RuleStatus(
+        id=rule.id,
+        firewall=firewall,
+        firewall_detail=firewall_detail,
+        backend=backend,
+        backend_detail=backend_detail,
+        connectable=rule.enabled and firewall == "open" and backend == "reachable",
+    )
+
+
+@app.post("/api/rules/{rule_id}/open-firewall", response_model=RuleStatus)
+def open_rule_firewall(rule_id: int, user: str = Depends(current_user)):
+    """Retry the AWS firewall opening for one rule, reporting what AWS actually said.
+    The create path swallows this error on purpose; here the user asked, so they see it."""
+    with Session(engine) as session:
+        rule = session.get(ForwardRule, rule_id)
+        if not rule:
+            raise HTTPException(status_code=404, detail="Rule not found")
+        if not aws_config()["instance"]:
+            raise HTTPException(status_code=400, detail="No AWS credentials configured")
+        try:
+            lightsail_open(rule.public_port, rule.protocol)
+        except Exception as e:
+            raise HTTPException(status_code=400, detail=str(e))
+        states, reason = _lightsail_ports()
+        return _rule_status(rule, _probe_backend(rule), states, reason)
 
 
 @app.get("/api/lightsail-status")

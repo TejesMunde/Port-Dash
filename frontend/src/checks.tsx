@@ -126,6 +126,32 @@ const run = async () => {
   assert(res.created.length === 0, "both/tcp-fails: nothing created");
   assert(res.error === "TCP port 25565 already mapped", "both/tcp-fails: raw error, no prefix");
 
+  // --- badgeFor.actionable: only the badge with a real fix behind it ---
+  const st = (o: Partial<RuleStatus>): RuleStatus => ({
+    id: 1,
+    firewall: "open",
+    firewall_detail: "",
+    backend: "reachable",
+    backend_detail: "",
+    connectable: false,
+    ...o,
+  });
+
+  // The 2208 case: closed in AWS, and we hold the permission to open it.
+  let bf = badgeFor(st({ firewall: "closed", firewall_detail: "not open in the AWS firewall" }), true, false);
+  assert(bf.text === "Blocked in AWS" && bf.actionable === true, "row: blocked-in-AWS is clickable");
+  assert(bf.title.includes("not open in the AWS firewall"), "row: keeps the AWS reason in the tooltip");
+
+  // Everything else must stay inert -- offering "open this port" would be a lie
+  // when the port is already open, or when we cannot even ask AWS.
+  assert(!badgeFor(st({ connectable: true }), true, false).actionable, "row: connectable not clickable");
+  assert(!badgeFor(st({ backend: "refused" }), true, false).actionable, "row: dead backend not clickable");
+  assert(!badgeFor(st({ backend: "timeout" }), true, false).actionable, "row: timeout not clickable");
+  assert(!badgeFor(st({ firewall: "unconfigured" }), true, false).actionable, "row: unconfigured not clickable");
+  assert(!badgeFor(st({ firewall: "closed" }), false, false).actionable, "row: disabled rule not clickable");
+  assert(!badgeFor(st({ firewall: "closed" }), true, true).actionable, "row: verifying not clickable");
+  assert(!badgeFor(undefined, true, false).actionable, "row: unknown status not clickable");
+
   // --- awsBadge: green only on a proven connection, form only when it helps ---
   const ls = (o: Partial<LightsailStatus>): LightsailStatus => ({
     configured: false,

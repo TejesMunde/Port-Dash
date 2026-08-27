@@ -65,6 +65,7 @@ export function Dashboard({ onLogout }: { onLogout: () => void }) {
   const [statuses, setStatuses] = useState<Record<number, RuleStatus>>({});
   const [verifying, setVerifying] = useState<number[]>([]);
   const [awsOpen, setAwsOpen] = useState(false);
+  const [fixRule, setFixRule] = useState<Rule | null>(null);
   const cachedRules = useRef<Rule[]>([]);
   const deleteTimeoutRef = useRef<ReturnType<typeof setTimeout> | null>(null);
   const cleanup = useRef<(() => void) | null>(null);
@@ -182,6 +183,10 @@ export function Dashboard({ onLogout }: { onLogout: () => void }) {
       clearTimeout(deleteTimeoutRef.current);
       deleteTimeoutRef.current = null;
     }
+    removeRule(rule);
+  };
+
+  const removeRule = (rule: Rule) => {
     const prev = rules;
     setRules(rules.filter((r) => r.id !== rule.id));
     setRuleErrors((p) => ({ ...p, [rule.id]: "" }));
@@ -331,6 +336,7 @@ export function Dashboard({ onLogout }: { onLogout: () => void }) {
                     publicIp={netInfo?.self_public_ip}
                     onToggle={() => handleToggle(rule)}
                     onDelete={() => handleDelete(rule)}
+                    onFix={() => setFixRule(rule)}
                     isDeleteConfirm={confirmDeleteId === rule.id}
                     error={ruleErrors[rule.id]}
                     status={statuses[rule.id]}
@@ -342,6 +348,26 @@ export function Dashboard({ onLogout }: { onLogout: () => void }) {
           </section>
         </div>
       </main>
+
+      {/* Driven by fixRule rather than living inside the row: the row unmounts on
+          delete, and a dialog that unmounts itself mid-action cannot report back. */}
+      <Dialog open={fixRule !== null} onOpenChange={(o: boolean) => !o && setFixRule(null)}>
+        {fixRule && (
+          <FirewallDialog
+            rule={fixRule}
+            status={statuses[fixRule.id]}
+            onOpened={(st) => {
+              setStatuses((prev) => ({ ...prev, [st.id]: st }));
+              setFixRule(null);
+              if (st.firewall !== "open") verifyOpen([st.id]);
+            }}
+            onDelete={() => {
+              removeRule(fixRule);
+              setFixRule(null);
+            }}
+          />
+        )}
+      </Dialog>
 
       {/* PlayStation Blue anchors the bottom of the channel. */}
       <footer className="bg-primary text-white">
@@ -406,6 +432,7 @@ function RuleRow({
   publicIp,
   onToggle,
   onDelete,
+  onFix,
   isDeleteConfirm,
   error,
   status,
@@ -415,6 +442,7 @@ function RuleRow({
   publicIp: string | null | undefined;
   onToggle: () => void;
   onDelete: () => void;
+  onFix: () => void;
   isDeleteConfirm: boolean;
   error?: string;
   status?: RuleStatus;
@@ -435,12 +463,23 @@ function RuleRow({
             <span className="text-[12px] font-bold px-2 py-1 rounded-3xl bg-secondary text-muted-foreground">
               {rule.protocol === "tcp" ? "TCP" : "UDP"}
             </span>
-            <span
-              className={`text-[12px] font-bold px-2 py-1 rounded-3xl ${BADGE_TONE[badge.tone]}`}
-              title={badge.title}
-            >
-              {badge.text}
-            </span>
+            {badge.actionable ? (
+              <button
+                type="button"
+                onClick={onFix}
+                className={`text-[12px] font-bold px-2 py-1 rounded-3xl hover:opacity-80 transition-opacity ${BADGE_TONE[badge.tone]}`}
+                title={badge.title}
+              >
+                {badge.text}
+              </button>
+            ) : (
+              <span
+                className={`text-[12px] font-bold px-2 py-1 rounded-3xl ${BADGE_TONE[badge.tone]}`}
+                title={badge.title}
+              >
+                {badge.text}
+              </span>
+            )}
           </div>
           <div className="flex flex-wrap items-center gap-2 text-[14px] text-muted-foreground mt-1">
             <span>
@@ -516,13 +555,19 @@ export function badgeFor(
   status: RuleStatus | undefined,
   enabled: boolean,
   verifying: boolean
-): { text: string; tone: "good" | "bad" | "warn" | "idle"; title: string } {
+): { text: string; tone: "good" | "bad" | "warn" | "idle"; title: string; actionable?: boolean } {
   if (verifying) return { text: "Verifying…", tone: "idle", title: "Waiting for AWS to report the port open" };
   if (!enabled) return { text: "Disabled", tone: "idle", title: "Rule is switched off" };
   if (!status) return { text: "Checking…", tone: "idle", title: "Fetching status" };
   if (status.connectable) return { text: "Open & connectable", tone: "good", title: status.firewall_detail };
+  // The only badge with a fix behind it: we hold the AWS permission to open this.
   if (status.firewall === "closed")
-    return { text: "Blocked in AWS", tone: "bad", title: status.firewall_detail };
+    return {
+      text: "Blocked in AWS",
+      tone: "bad",
+      title: `${status.firewall_detail} — click to open it`,
+      actionable: true,
+    };
   if (status.firewall === "unconfigured")
     return { text: "AWS unverified", tone: "warn", title: status.firewall_detail };
   if (status.backend === "refused")
@@ -783,6 +828,77 @@ function AwsCredentialsDialog({
           </Button>
         </DialogFooter>
       </form>
+    </DialogContent>
+  );
+}
+
+
+function FirewallDialog({
+  rule,
+  status,
+  onOpened,
+  onDelete,
+}: {
+  rule: Rule;
+  status?: RuleStatus;
+  onOpened: (status: RuleStatus) => void;
+  onDelete: () => void;
+}) {
+  const [busy, setBusy] = useState(false);
+  const [err, setErr] = useState<string | null>(null);
+
+  const openPort = async () => {
+    setBusy(true);
+    setErr(null);
+    try {
+      onOpened(await api.openFirewall(rule.id));
+    } catch (e: any) {
+      setErr(e.message);
+    } finally {
+      setBusy(false);
+    }
+  };
+
+  return (
+    <DialogContent className="w-full">
+      <DialogHeader>
+        <DialogTitle>Port {rule.public_port} is closed in AWS</DialogTitle>
+        <p className="text-[14px] text-muted-foreground">
+          The forward works on this host, but the Lightsail firewall is dropping traffic
+          before it arrives, so nothing outside AWS can reach{" "}
+          {rule.dest_hostname}:{rule.dest_port}.
+        </p>
+      </DialogHeader>
+      <div className="space-y-5 mt-6 px-8">
+        <dl className="text-[14px] space-y-2">
+          <div className="flex justify-between gap-4">
+            <dt className="text-muted-foreground">Forward</dt>
+            <dd className="font-medium">{rule.label}</dd>
+          </div>
+          <div className="flex justify-between gap-4">
+            <dt className="text-muted-foreground">Port</dt>
+            <dd className="font-medium">
+              {rule.public_port}/{rule.protocol.toUpperCase()}
+            </dd>
+          </div>
+          {status && (
+            <div className="flex justify-between gap-4">
+              <dt className="text-muted-foreground">AWS says</dt>
+              <dd className="font-medium text-right">{status.firewall_detail}</dd>
+            </div>
+          )}
+        </dl>
+        {err && <p className="text-[14px] text-destructive">{err}</p>}
+        <DialogFooter className="px-0 pb-0 gap-3">
+          {/* No second confirm: opening the dialog was already the deliberate act. */}
+          <Button variant="destructive" onClick={onDelete} disabled={busy}>
+            Delete forward
+          </Button>
+          <Button onClick={openPort} disabled={busy}>
+            {busy ? "Opening…" : "Open port in AWS"}
+          </Button>
+        </DialogFooter>
+      </div>
     </DialogContent>
   );
 }

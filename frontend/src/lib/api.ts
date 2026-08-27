@@ -124,6 +124,8 @@ export const api = {
   checkUpdate: () => request<UpdateInfo>("/api/check-update"),
   triggerUpdate: () => request<{ ok: boolean; message: string }>("/api/update", { method: "POST" }),
   rulesStatus: () => request<RuleStatus[]>("/api/rules/status"),
+  openFirewall: (id: number) =>
+    request<RuleStatus>(`/api/rules/${id}/open-firewall`, { method: "POST" }),
   lightsailStatus: () => request<LightsailStatus>("/api/lightsail-status"),
   setAwsConfig: (c: AwsCredentials) =>
     request<LightsailStatus>("/api/aws-config", { method: "POST", body: JSON.stringify(c) }),
